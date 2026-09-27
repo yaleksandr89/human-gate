@@ -1,0 +1,7 @@
+/vendor/
+/composer.phar
+/auth.json
+/composer.lock
+/.build/
+/.idea/
+*.iml
