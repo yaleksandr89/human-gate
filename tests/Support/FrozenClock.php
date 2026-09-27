@@ -1,0 +1,22 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Yaleksandr\HumanGate\Tests\Support;
+
+use Yaleksandr\HumanGate\Port\Clock;
+
+final class FrozenClock implements Clock
+{
+    public function __construct(private int $timestamp) {}
+
+    public function now(): int
+    {
+        return $this->timestamp;
+    }
+
+    public function set(int $timestamp): void
+    {
+        $this->timestamp = $timestamp;
+    }
+}
