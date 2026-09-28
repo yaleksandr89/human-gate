@@ -1,0 +1,12 @@
+Font: Noto Sans Regular
+License: OFL-1.1
+Upstream: https://github.com/notofonts/latin-greek-cyrillic
+Release: NotoSans-v2.015
+Commit: c4a321e123e4d4ff315f57f4e0adf294fe3a95be
+Archive: https://github.com/notofonts/latin-greek-cyrillic/releases/download/NotoSans-v2.015/NotoSans-v2.015.zip
+Archive size: 117491253 bytes
+Archive SHA-256: 0c34df072a3fa7efbb7cbf34950e1f971a4447cffe365d3a359e2d4089b958f5
+Archive member: NotoSans/hinted/ttf/NotoSans-Regular.ttf
+Font size: 621572 bytes
+Font SHA-256: 478c558ea716033cd60c03438f628dfa75694dcf6b5f6d505a2f05fd2b4f3823
+OFL SHA-256: cee9892f9f0cc8fe882c9e9537ee6a89621d86ee7ceaf70b02e2b2b1c25c061a
