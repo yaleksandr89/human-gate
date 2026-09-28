@@ -14,6 +14,7 @@ use Yaleksandr\HumanGate\Challenge\Policy;
 use Yaleksandr\HumanGate\Challenge\Purpose;
 use Yaleksandr\HumanGate\Internal\ChallengeLifecycle;
 use Yaleksandr\HumanGate\Port\ChallengeStore;
+use Yaleksandr\HumanGate\State\AnswerProof;
 use Yaleksandr\HumanGate\State\ChallengeBucket;
 use Yaleksandr\HumanGate\State\LifecycleCode;
 use Yaleksandr\HumanGate\State\LifecycleResult;
@@ -41,7 +42,7 @@ final class ChallengeStoreTest extends TestCase
     {
         $marker = new Purpose('return-value');
         $result = $this->store->atomic(function (ChallengeBucket $bucket) use ($marker): Purpose {
-            $this->lifecycle->issue($bucket, $this->id, $this->purpose, ChallengeKind::TextImage);
+            $this->lifecycle->issue($bucket, $this->id, $this->purpose, ChallengeKind::TextImage, new AnswerProof(1, str_repeat('a', 64)));
 
             return $marker;
         });
@@ -119,7 +120,7 @@ final class ChallengeStoreTest extends TestCase
 
     private function issue(): void
     {
-        $this->store->atomic(fn(ChallengeBucket $bucket): LifecycleResult => $this->lifecycle->issue($bucket, $this->id, $this->purpose, ChallengeKind::TextImage));
+        $this->store->atomic(fn(ChallengeBucket $bucket): LifecycleResult => $this->lifecycle->issue($bucket, $this->id, $this->purpose, ChallengeKind::TextImage, new AnswerProof(1, str_repeat('a', 64))));
     }
 
     private function lookup(): LifecycleResult

@@ -12,6 +12,7 @@ use Yaleksandr\HumanGate\Challenge\Purpose;
 use Yaleksandr\HumanGate\Internal\Session\SessionBucketCodec;
 use Yaleksandr\HumanGate\Session\NativeSessionStorageException;
 use Yaleksandr\HumanGate\State\ActiveChallenge;
+use Yaleksandr\HumanGate\State\AnswerProof;
 use Yaleksandr\HumanGate\State\ChallengeBucket;
 
 #[TestDox('Канонический формат состояния сессии')]
@@ -27,7 +28,7 @@ final class SessionBucketCodecTest extends TestCase
         $receipts = [self::receipt('1', null, $payload)];
         $json = SessionBucketCodec::encodeNamespace($bucket, $receipts);
 
-        self::assertSame('{"schema":1,"active":[', substr($json, 0, 22));
+        self::assertSame('{"schema":2,"active":[', substr($json, 0, 22));
         self::assertLessThan(strpos($json, str_repeat('b', 64)), strpos($json, str_repeat('a', 64)));
         self::assertSame($payload, SessionBucketCodec::decode($json)['payload']);
         self::assertSame($json, SessionBucketCodec::decode($json)['namespace']);
@@ -38,7 +39,7 @@ final class SessionBucketCodecTest extends TestCase
     {
         self::assertSame([], SessionBucketCodec::empty()['receipts']);
         $this->expectException(NativeSessionStorageException::class);
-        SessionBucketCodec::decode('{"schema":1,"active":[],"terminal":[],"receipts":[]}');
+        SessionBucketCodec::decode('{"schema":2,"active":[],"terminal":[],"receipts":[]}');
     }
 
     #[TestDox('Неканонический JSON, лишние поля и повторяющиеся ключи отклоняются')]
@@ -47,9 +48,9 @@ final class SessionBucketCodecTest extends TestCase
         $valid = self::valid();
         $bad = [
             ' ' . $valid,
-            str_replace('"schema":1', '"schema":1,"schema":1', $valid),
-            str_replace('"schema":1', '"schema":1,"extra":0', $valid),
-            str_replace('"schema":1', '"schema":2', $valid),
+            str_replace('"schema":2', '"schema":2,"schema":2', $valid),
+            str_replace('"schema":2', '"schema":2,"extra":0', $valid),
+            str_replace('"schema":2', '"schema":1', $valid),
             str_replace('"active":[]', '"active":{}', $valid),
             'broken',
             null,
@@ -67,11 +68,11 @@ final class SessionBucketCodecTest extends TestCase
     #[TestDox('Повтор идентификатора и пересечение активных и завершённых записей отклоняются')]
     public function testDuplicateIdentifiers(): void
     {
-        $record = ['id' => str_repeat('a', 64), 'purpose' => 'login', 'kind' => 'text_image', 'issuedAt' => 0, 'expiresAt' => 1, 'wrongAttempts' => 0];
+        $record = ['id' => str_repeat('a', 64), 'purpose' => 'login', 'kind' => 'text_image', 'issuedAt' => 0, 'expiresAt' => 1, 'wrongAttempts' => 0, 'proof' => ['format' => 1, 'digest' => str_repeat('a', 64)]];
         $terminal = ['id' => str_repeat('a', 64), 'purpose' => 'login', 'reason' => 'consumed', 'terminalAt' => 1, 'purgeAt' => 2];
         foreach ([[[$record, $record], []], [[$record], [$terminal]], [[], [$terminal, $terminal]]] as [$active, $finished]) {
-            $payload = json_encode(['schema' => 1, 'active' => $active, 'terminal' => $finished], JSON_THROW_ON_ERROR);
-            $json = json_encode(['schema' => 1, 'active' => $active, 'terminal' => $finished,
+            $payload = json_encode(['schema' => 2, 'active' => $active, 'terminal' => $finished], JSON_THROW_ON_ERROR);
+            $json = json_encode(['schema' => 2, 'active' => $active, 'terminal' => $finished,
                 'receipts' => [self::receipt('1', null, $payload)]], JSON_THROW_ON_ERROR);
             try {
                 SessionBucketCodec::decode($json);
@@ -87,7 +88,7 @@ final class SessionBucketCodecTest extends TestCase
     {
         $valid = self::valid();
         foreach ([
-            str_replace('"schema":1', '"schema":"1"', $valid),
+            str_replace('"schema":2', '"schema":"2"', $valid),
             str_replace('"receipts"', '"other"', $valid),
             str_replace('"token":"' . str_repeat('1', 64) . '"', '"token":"bad"', $valid),
             str_repeat(' ', 65537),
@@ -105,7 +106,7 @@ final class SessionBucketCodecTest extends TestCase
     public function testInvalidRecordFields(): void
     {
         $record = ['id' => str_repeat('a', 64), 'purpose' => 'login', 'kind' => 'text_image',
-            'issuedAt' => 0, 'expiresAt' => 1, 'wrongAttempts' => 0];
+            'issuedAt' => 0, 'expiresAt' => 1, 'wrongAttempts' => 0, 'proof' => ['format' => 1, 'digest' => str_repeat('a', 64)]];
         $variants = [];
         foreach ([['kind', 'unknown'], ['issuedAt', -1], ['expiresAt', 0], ['wrongAttempts', -1], ['purpose', 'Bad']] as [$field, $value]) {
             $bad = $record;
@@ -113,8 +114,8 @@ final class SessionBucketCodecTest extends TestCase
             $variants[] = $bad;
         }
         foreach ($variants as $bad) {
-            $payload = json_encode(['schema' => 1, 'active' => [$bad], 'terminal' => []], JSON_THROW_ON_ERROR);
-            $json = json_encode(['schema' => 1, 'active' => [$bad], 'terminal' => [],
+            $payload = json_encode(['schema' => 2, 'active' => [$bad], 'terminal' => []], JSON_THROW_ON_ERROR);
+            $json = json_encode(['schema' => 2, 'active' => [$bad], 'terminal' => [],
                 'receipts' => [self::receipt('1', null, $payload)]], JSON_THROW_ON_ERROR);
             try {
                 SessionBucketCodec::decode($json);
@@ -123,6 +124,54 @@ final class SessionBucketCodecTest extends TestCase
                 self::assertSame('malformed_state', $exception->reason->value);
             }
         }
+    }
+
+    #[TestDox('Отсутствующее, изменённое или переставленное доказательство отклоняется')]
+    public function testMalformedProof(): void
+    {
+        $record = ['id' => str_repeat('a', 64), 'purpose' => 'login', 'kind' => 'text_image',
+            'issuedAt' => 0, 'expiresAt' => 1, 'wrongAttempts' => 0,
+            'proof' => ['format' => 1, 'digest' => str_repeat('a', 64)]];
+        $variants = [];
+        $missing = $record;
+        unset($missing['proof']);
+        $variants[] = $missing;
+        foreach ([null, [], ['digest' => str_repeat('a', 64), 'format' => 1],
+            ['format' => 2, 'digest' => str_repeat('a', 64)],
+            ['format' => 1, 'digest' => str_repeat('A', 64)],
+            ['format' => 1, 'digest' => str_repeat('a', 64), 'extra' => true]] as $proof) {
+            $bad = $record;
+            $bad['proof'] = $proof;
+            $variants[] = $bad;
+        }
+        foreach ($variants as $bad) {
+            $payload = json_encode(['schema' => 2, 'active' => [$bad], 'terminal' => []], JSON_THROW_ON_ERROR);
+            $json = json_encode(['schema' => 2, 'active' => [$bad], 'terminal' => [],
+                'receipts' => [self::receipt('1', null, $payload)]], JSON_THROW_ON_ERROR);
+            try {
+                SessionBucketCodec::decode($json);
+                self::fail('Malformed proof was accepted.');
+            } catch (NativeSessionStorageException $exception) {
+                self::assertSame('malformed_state', $exception->reason->value);
+            }
+        }
+    }
+
+    #[TestDox('Активная запись учитывает доказательство в пределе размера')]
+    public function testActiveRecordSizeIncludesProof(): void
+    {
+        $bucket = new ChallengeBucket();
+        $bucket->setActive(new ActiveChallenge(
+            ChallengeId::fromString(str_repeat('a', 64)),
+            new Purpose(str_repeat('a', 64)),
+            ChallengeKind::TextImage,
+            0,
+            1,
+            new AnswerProof(1, str_repeat('b', 64)),
+        ));
+        $json = SessionBucketCodec::encodeNamespace($bucket, [self::receipt('1', null, SessionBucketCodec::encodePayload($bucket))]);
+        self::assertSame(1, SessionBucketCodec::decode($json)['bucket']->activeCount());
+        self::assertStringContainsString('"issuedAt":0,"expiresAt":1,"wrongAttempts":0,"proof":{"format":1,"digest":"' . str_repeat('b', 64) . '"}', $json);
     }
 
     private static function valid(): string
@@ -141,6 +190,6 @@ final class SessionBucketCodecTest extends TestCase
 
     private static function record(string $digit): ActiveChallenge
     {
-        return new ActiveChallenge(ChallengeId::fromString(str_repeat($digit, 64)), new Purpose('login'), ChallengeKind::TextImage, 0, 1);
+        return new ActiveChallenge(ChallengeId::fromString(str_repeat($digit, 64)), new Purpose('login'), ChallengeKind::TextImage, 0, 1, new AnswerProof(1, str_repeat('a', 64)));
     }
 }

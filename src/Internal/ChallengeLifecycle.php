@@ -14,6 +14,7 @@ use Yaleksandr\HumanGate\Challenge\Policy;
 use Yaleksandr\HumanGate\Challenge\Purpose;
 use Yaleksandr\HumanGate\Port\Clock;
 use Yaleksandr\HumanGate\State\ActiveChallenge;
+use Yaleksandr\HumanGate\State\AnswerProof;
 use Yaleksandr\HumanGate\State\ChallengeBucket;
 use Yaleksandr\HumanGate\State\ChallengeTombstone;
 use Yaleksandr\HumanGate\State\LifecycleCode;
@@ -28,15 +29,15 @@ final readonly class ChallengeLifecycle
 {
     public function __construct(private Policy $policy, private Clock $clock) {}
 
-    public function issue(ChallengeBucket $bucket, ChallengeId $id, Purpose $purpose, ChallengeKind $kind): LifecycleResult
+    public function issue(ChallengeBucket $bucket, ChallengeId $id, Purpose $purpose, ChallengeKind $kind, AnswerProof $proof): LifecycleResult
     {
-        return $this->transition($bucket, function (ChallengeBucket $working, int $now) use ($id, $purpose, $kind): LifecycleResult {
+        return $this->transition($bucket, function (ChallengeBucket $working, int $now) use ($id, $purpose, $kind, $proof): LifecycleResult {
             $this->requireUnusedId($working, $id);
             if ($this->atCapacity($working, $purpose)) {
                 return new LifecycleResult(LifecycleCode::CapacityExceeded);
             }
 
-            $challenge = $this->newChallenge($id, $purpose, $kind, $now);
+            $challenge = $this->newChallenge($id, $purpose, $kind, $proof, $now);
             $working->setActive($challenge);
 
             return new LifecycleResult(LifecycleCode::Issued, $challenge);
@@ -92,9 +93,9 @@ final readonly class ChallengeLifecycle
      * EN: Replacement generation/rendering must already have succeeded before this transition.
      * RU: Генерация и отрисовка замены должны успешно завершиться до этого перехода.
      */
-    public function replace(ChallengeBucket $bucket, ChallengeId $oldId, Purpose $purpose, ChallengeId $newId, ChallengeKind $newKind): LifecycleResult
+    public function replace(ChallengeBucket $bucket, ChallengeId $oldId, Purpose $purpose, ChallengeId $newId, ChallengeKind $newKind, AnswerProof $proof): LifecycleResult
     {
-        return $this->transition($bucket, function (ChallengeBucket $working, int $now) use ($oldId, $purpose, $newId, $newKind): LifecycleResult {
+        return $this->transition($bucket, function (ChallengeBucket $working, int $now) use ($oldId, $purpose, $newId, $newKind, $proof): LifecycleResult {
             $result = $this->resolve($working, $oldId, $purpose);
             if ($result->code !== LifecycleCode::Active && $result->code !== LifecycleCode::Expired) {
                 return $result;
@@ -117,7 +118,7 @@ final readonly class ChallengeLifecycle
                 $expiresAt = $tombstone->terminalAt;
             }
 
-            $new = $this->newChallenge($newId, $purpose, $newKind, $now);
+            $new = $this->newChallenge($newId, $purpose, $newKind, $proof, $now);
             $working->setTombstone($this->terminal($oldId, $purpose, TerminalReason::Replaced, $expiresAt, $now));
             $working->setActive($new);
 
@@ -188,14 +189,14 @@ final readonly class ChallengeLifecycle
             || $bucket->activeCount($purpose) >= $this->policy->maxActivePerPurpose;
     }
 
-    private function newChallenge(ChallengeId $id, Purpose $purpose, ChallengeKind $kind, int $now): ActiveChallenge
+    private function newChallenge(ChallengeId $id, Purpose $purpose, ChallengeKind $kind, AnswerProof $proof, int $now): ActiveChallenge
     {
         $expiresAt = $this->addSeconds($now, $this->policy->ttlSeconds);
         // EN: Reserve a representable retention horizon before accepting an active record.
         // RU: До принятия активной записи проверяем, что конец срока хранения представим целым числом.
         $this->addSeconds($expiresAt, $this->policy->terminalRetentionSeconds);
 
-        return new ActiveChallenge($id, $purpose, $kind, $now, $expiresAt);
+        return new ActiveChallenge($id, $purpose, $kind, $now, $expiresAt, $proof);
     }
 
     private function terminal(ChallengeId $id, Purpose $purpose, TerminalReason $reason, int $expiresAt, int $now): ChallengeTombstone

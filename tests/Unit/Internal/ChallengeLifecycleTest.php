@@ -17,6 +17,7 @@ use Yaleksandr\HumanGate\Challenge\Purpose;
 use Yaleksandr\HumanGate\Internal\ChallengeLifecycle;
 use Yaleksandr\HumanGate\Port\Clock;
 use Yaleksandr\HumanGate\State\ActiveChallenge;
+use Yaleksandr\HumanGate\State\AnswerProof;
 use Yaleksandr\HumanGate\State\ChallengeBucket;
 use Yaleksandr\HumanGate\State\ChallengeTombstone;
 use Yaleksandr\HumanGate\State\LifecycleCode;
@@ -42,7 +43,7 @@ final class ChallengeLifecycleTest extends TestCase
     #[TestDox('Выпуск задаёт точные временные метки, тип, назначение и нулевой счётчик')]
     public function testIssueCreatesExactActiveState(): void
     {
-        $result = $this->lifecycle->issue($this->bucket, self::id(1), $this->purpose, ChallengeKind::IconSequence);
+        $result = $this->lifecycle->issue($this->bucket, self::id(1), $this->purpose, ChallengeKind::IconSequence, self::proof());
         self::assertSame(LifecycleCode::Issued, $result->code);
         $record = $result->challenge;
         self::assertNotNull($record);
@@ -173,7 +174,7 @@ final class ChallengeLifecycleTest extends TestCase
             $this->issue($i, new Purpose('form-' . $i));
         }
         $before = clone $this->bucket;
-        $result = $this->lifecycle->issue($this->bucket, self::id(13), $this->purpose, ChallengeKind::TextImage);
+        $result = $this->lifecycle->issue($this->bucket, self::id(13), $this->purpose, ChallengeKind::TextImage, self::proof());
 
         self::assertSame(LifecycleCode::CapacityExceeded, $result->code);
         self::assertEquals($before, $this->bucket);
@@ -186,7 +187,7 @@ final class ChallengeLifecycleTest extends TestCase
         for ($i = 1; $i <= 4; ++$i) {
             $this->issue($i);
         }
-        self::assertSame(LifecycleCode::CapacityExceeded, $this->lifecycle->issue($this->bucket, self::id(5), new Purpose('login'), ChallengeKind::TextImage)->code);
+        self::assertSame(LifecycleCode::CapacityExceeded, $this->lifecycle->issue($this->bucket, self::id(5), new Purpose('login'), ChallengeKind::TextImage, self::proof())->code);
         $this->issue(6, new Purpose('registration'));
         $this->wrong(1);
         $this->consume(2);
@@ -249,7 +250,7 @@ final class ChallengeLifecycleTest extends TestCase
         $before = clone $this->bucket;
         $purpose = $expected === LifecycleCode::PurposeMismatch ? new Purpose('other') : $this->purpose;
 
-        $result = $this->lifecycle->replace($this->bucket, self::id(1), $purpose, self::id(2), ChallengeKind::CategorySelection);
+        $result = $this->lifecycle->replace($this->bucket, self::id(1), $purpose, self::id(2), ChallengeKind::CategorySelection, self::proof());
 
         self::assertSame($expected, $result->code);
         self::assertNull($result->challenge);
@@ -527,7 +528,7 @@ final class ChallengeLifecycleTest extends TestCase
     public function testInvalidActiveRecord(int $issuedAt, int $expiresAt, int $attempts): void
     {
         $this->expectException(InvalidArgumentException::class);
-        new ActiveChallenge(self::id(1), $this->purpose, ChallengeKind::TextImage, $issuedAt, $expiresAt, $attempts);
+        new ActiveChallenge(self::id(1), $this->purpose, ChallengeKind::TextImage, $issuedAt, $expiresAt, self::proof(), $attempts);
     }
 
     /** @return iterable<string, array{int, int, int}> */
@@ -598,6 +599,11 @@ final class ChallengeLifecycleTest extends TestCase
         self::assertSame(2, $clock->reads);
     }
 
+    private static function proof(): AnswerProof
+    {
+        return new AnswerProof(1, str_repeat('a', 64));
+    }
+
     private static function id(int $number): ChallengeId
     {
         return ChallengeId::fromString(sprintf('%064x', $number));
@@ -605,7 +611,7 @@ final class ChallengeLifecycleTest extends TestCase
 
     private function issue(int $number, ?Purpose $purpose = null): ActiveChallenge
     {
-        $result = $this->lifecycle->issue($this->bucket, self::id($number), $purpose ?? $this->purpose, ChallengeKind::TextImage);
+        $result = $this->lifecycle->issue($this->bucket, self::id($number), $purpose ?? $this->purpose, ChallengeKind::TextImage, self::proof());
         self::assertSame(LifecycleCode::Issued, $result->code);
         self::assertNotNull($result->challenge);
 
@@ -629,7 +635,7 @@ final class ChallengeLifecycleTest extends TestCase
 
     private function replace(int $old, int $new): LifecycleResult
     {
-        return $this->lifecycle->replace($this->bucket, self::id($old), $this->purpose, self::id($new), ChallengeKind::CategorySelection);
+        return $this->lifecycle->replace($this->bucket, self::id($old), $this->purpose, self::id($new), ChallengeKind::CategorySelection, self::proof());
     }
 
     private function targetOperation(string $operation, Purpose $purpose): LifecycleResult
@@ -638,7 +644,7 @@ final class ChallengeLifecycleTest extends TestCase
             'lookup' => $this->lifecycle->lookup($this->bucket, self::id(1), $purpose),
             'wrong' => $this->lifecycle->registerWrongAttempt($this->bucket, self::id(1), $purpose),
             'consume' => $this->lifecycle->consume($this->bucket, self::id(1), $purpose),
-            'replace' => $this->lifecycle->replace($this->bucket, self::id(1), $purpose, self::id(99), ChallengeKind::CategorySelection),
+            'replace' => $this->lifecycle->replace($this->bucket, self::id(1), $purpose, self::id(99), ChallengeKind::CategorySelection, self::proof()),
             default => throw new LogicException('Unknown test operation.'),
         };
     }
