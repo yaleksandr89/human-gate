@@ -18,6 +18,7 @@ final readonly class ActiveChallenge
         public ChallengeKind $kind,
         public int $issuedAt,
         public int $expiresAt,
+        public AnswerProof $proof,
         public int $wrongAttempts = 0,
     ) {
         if ($issuedAt < 0 || $expiresAt <= $issuedAt || $wrongAttempts < 0) {
@@ -31,6 +32,6 @@ final readonly class ActiveChallenge
             throw new OverflowException('The wrong attempt count cannot be incremented.');
         }
 
-        return new self($this->id, $this->purpose, $this->kind, $this->issuedAt, $this->expiresAt, $this->wrongAttempts + 1);
+        return new self($this->id, $this->purpose, $this->kind, $this->issuedAt, $this->expiresAt, $this->proof, $this->wrongAttempts + 1);
     }
 }

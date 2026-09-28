@@ -6,14 +6,20 @@ use Yaleksandr\HumanGate\Challenge\ChallengeId;
 use Yaleksandr\HumanGate\Challenge\ChallengeKind;
 use Yaleksandr\HumanGate\Challenge\Policy;
 use Yaleksandr\HumanGate\Challenge\Purpose;
+use Yaleksandr\HumanGate\ChallengeService;
+use Yaleksandr\HumanGate\Internal\AnswerDigest;
 use Yaleksandr\HumanGate\Internal\ChallengeLifecycle;
 use Yaleksandr\HumanGate\Internal\Session\SessionBucketCodec;
+use Yaleksandr\HumanGate\Port\TextImageRenderer;
+use Yaleksandr\HumanGate\Presentation\ImagePresentation;
 use Yaleksandr\HumanGate\Session\ActiveNativeSessionScope;
 use Yaleksandr\HumanGate\Session\NativeSessionChallengeStore;
 use Yaleksandr\HumanGate\Session\NativeSessionStorageException;
 use Yaleksandr\HumanGate\State\ActiveChallenge;
+use Yaleksandr\HumanGate\State\AnswerProof;
 use Yaleksandr\HumanGate\State\ChallengeBucket;
 use Yaleksandr\HumanGate\Tests\Support\FrozenClock;
+use Yaleksandr\HumanGate\TextImage\TextImageStrategy;
 
 require __DIR__ . '/../../../vendor/autoload.php';
 
@@ -51,8 +57,8 @@ final class NativeSessionWriteInterposer
             $path = $directory . '/sess_' . $id;
             while (true) {
                 $bytes = file_get_contents($path);
-                $start = is_string($bytes) ? strpos($bytes, '{"schema":1') : false;
-                if ($start !== false && preg_match('/\{"schema":1,.*\]\}/s', substr($bytes, $start), $match) === 1 && $match[0] !== $before) {
+                $start = is_string($bytes) ? strpos($bytes, '{"schema":2') : false;
+                if ($start !== false && preg_match('/\{"schema":2,.*\]\}/s', substr($bytes, $start), $match) === 1 && $match[0] !== $before) {
                     try {
                         $decoded = SessionBucketCodec::decode($match[0]);
                         break;
@@ -68,7 +74,7 @@ final class NativeSessionWriteInterposer
                 $bucket = $decoded['bucket'];
                 $target = $bucket->active(ChallengeId::fromString(str_repeat('a', 64)));
                 if ($target !== null) {
-                    $bucket->setActive(new ActiveChallenge($target->id, $target->purpose, $target->kind, $target->issuedAt, $target->expiresAt));
+                    $bucket->setActive(new ActiveChallenge($target->id, $target->purpose, $target->kind, $target->issuedAt, $target->expiresAt, $target->proof));
                     $receipts = $decoded['receipts'];
                     $last = array_pop($receipts);
                     if ($last === null) {
@@ -153,15 +159,15 @@ try {
             'raw' => $_SESSION[SessionBucketCodec::SESSION_KEY] ?? null];
         session_write_close();
     } elseif ($operation === 'inject') {
-        $_SESSION[SessionBucketCodec::SESSION_KEY] = '{"schema":1,"active":[],"terminal":[],"receipts":[]}';
+        $_SESSION[SessionBucketCodec::SESSION_KEY] = '{"schema":2,"active":[],"terminal":[],"receipts":[]}';
         session_write_close();
         $result = ['status' => session_status()];
     } elseif ($operation === 'seed_eviction') {
         $bucket = new ChallengeBucket();
-        $bucket->setActive(new ActiveChallenge(ChallengeId::fromString(str_repeat('a', 64)), new Purpose('login'), ChallengeKind::TextImage, 0, 2000));
+        $bucket->setActive(new ActiveChallenge(ChallengeId::fromString(str_repeat('a', 64)), new Purpose('login'), ChallengeKind::TextImage, 0, 2000, new AnswerProof(1, str_repeat('a', 64))));
         $saved = '';
         for ($number = 0; $number < 500; ++$number) {
-            $bucket->setActive(new ActiveChallenge(ChallengeId::fromString(sprintf('%064x', $number)), new Purpose('login'), ChallengeKind::TextImage, 0, 2000));
+            $bucket->setActive(new ActiveChallenge(ChallengeId::fromString(sprintf('%064x', $number)), new Purpose('login'), ChallengeKind::TextImage, 0, 2000, new AnswerProof(1, str_repeat('a', 64))));
             $payload = SessionBucketCodec::encodePayload($bucket);
             $one = [['token' => str_repeat('0', 64), 'parent' => null, 'payloadDigest' => hash('sha256', $payload)]];
             $candidate = SessionBucketCodec::encodeNamespace($bucket, $one, false);
@@ -169,10 +175,15 @@ try {
                 break;
             }
             $saved = $candidate;
-            if (strlen($candidate) > 65310) {
+            if (strlen($candidate) > 65200) {
                 break;
             }
         }
+        for ($number = 0; $number < 2; ++$number) {
+            $bucket->setActive(new ActiveChallenge(ChallengeId::fromString(sprintf('%064x', $number)), new Purpose(str_repeat('a', 64)), ChallengeKind::TextImage, 0, 2000, new AnswerProof(1, str_repeat('a', 64))));
+        }
+        $payload = SessionBucketCodec::encodePayload($bucket);
+        $saved = SessionBucketCodec::encodeNamespace($bucket, [['token' => str_repeat('0', 64), 'parent' => null, 'payloadDigest' => hash('sha256', $payload)]]);
         if (strlen($saved) <= 65310) {
             throw new RuntimeException('Could not seed receipt eviction boundary.');
         }
@@ -200,6 +211,8 @@ try {
         $lifecycle = new ChallengeLifecycle(new Policy(), new FrozenClock(1000));
         $challengeId = ChallengeId::fromString(str_repeat('a', 64));
         $purpose = new Purpose('login');
+        $proof = new AnswerProof(1, str_repeat('a', 64));
+        $result = [];
         if ($operation === 'name_mismatch') {
             session_write_close();
             session_name('OTHER');
@@ -212,11 +225,26 @@ try {
             flush();
             $operation = 'issue';
         }
-        if ($operation === 'nested') {
+        if ($operation === 'seed_service') {
+            $knownProof = new AnswerProof(1, AnswerDigest::forAnswer($challengeId, $purpose, ChallengeKind::TextImage, '234567'));
+            $store->atomic(static function (ChallengeBucket $bucket) use ($challengeId, $purpose, $knownProof): void {
+                $bucket->setActive(new ActiveChallenge($challengeId, $purpose, ChallengeKind::TextImage, 1000, 2000, $knownProof));
+            });
+            $result = ['seeded' => true];
+        } elseif ($operation === 'verify_correct') {
+            $renderer = new class implements TextImageRenderer {
+                public function render(string $canonicalAnswer): ImagePresentation
+                {
+                    throw new RuntimeException('Verification must not render.');
+                }
+            };
+            $service = new ChallengeService($store, new Policy(), new FrozenClock(1000), new TextImageStrategy($renderer));
+            $result = ['code' => $service->verify($challengeId, $purpose, '234567')->value];
+        } elseif ($operation === 'nested') {
             $original = $_SESSION[SessionBucketCodec::SESSION_KEY] ?? null;
             try {
-                $store->atomic(static function (ChallengeBucket $bucket) use ($store, $lifecycle, $challengeId, $purpose): void {
-                    $lifecycle->issue($bucket, $challengeId, $purpose, ChallengeKind::TextImage);
+                $store->atomic(static function (ChallengeBucket $bucket) use ($store, $lifecycle, $challengeId, $purpose, $proof): void {
+                    $lifecycle->issue($bucket, $challengeId, $purpose, ChallengeKind::TextImage, $proof);
                     $store->atomic(static fn(ChallengeBucket $inner): int => $inner->activeCount());
                 });
                 throw new RuntimeException('Nested operation was accepted.');
@@ -229,8 +257,8 @@ try {
             $original = $_SESSION[SessionBucketCodec::SESSION_KEY] ?? null;
             $_SESSION['app'] = 'changed';
             try {
-                $store->atomic(static function (ChallengeBucket $bucket) use ($lifecycle, $challengeId, $purpose): never {
-                    $lifecycle->issue($bucket, $challengeId, $purpose, ChallengeKind::TextImage);
+                $store->atomic(static function (ChallengeBucket $bucket) use ($lifecycle, $challengeId, $purpose, $proof): never {
+                    $lifecycle->issue($bucket, $challengeId, $purpose, ChallengeKind::TextImage, $proof);
                     throw new RuntimeException('callback marker');
                 });
             } catch (RuntimeException $exception) {
@@ -243,11 +271,11 @@ try {
             $store->atomic(static fn(ChallengeBucket $bucket): int => $bucket->activeCount());
             $noop = ['sameKey' => ($_SESSION[SessionBucketCodec::SESSION_KEY] ?? null) === $original,
                 'active' => session_status() === PHP_SESSION_ACTIVE];
-            $issued = $store->atomic(static fn(ChallengeBucket $bucket) => $lifecycle->issue($bucket, $challengeId, $purpose, ChallengeKind::TextImage));
+            $issued = $store->atomic(static fn(ChallengeBucket $bucket) => $lifecycle->issue($bucket, $challengeId, $purpose, ChallengeKind::TextImage, $proof));
             $result = ['noop' => $noop, 'code' => $issued->code->value, 'closed' => session_status() === PHP_SESSION_NONE];
         } else {
             $transition = match ($operation) {
-                'issue' => static fn(ChallengeBucket $bucket) => $lifecycle->issue($bucket, $challengeId, $purpose, ChallengeKind::TextImage),
+                'issue' => static fn(ChallengeBucket $bucket) => $lifecycle->issue($bucket, $challengeId, $purpose, ChallengeKind::TextImage, $proof),
                 'consume' => static fn(ChallengeBucket $bucket) => $lifecycle->consume($bucket, $challengeId, $purpose),
                 'wrong' => static fn(ChallengeBucket $bucket) => $lifecycle->registerWrongAttempt($bucket, $challengeId, $purpose),
                 'lookup' => static fn(ChallengeBucket $bucket) => $lifecycle->lookup($bucket, $challengeId, $purpose),

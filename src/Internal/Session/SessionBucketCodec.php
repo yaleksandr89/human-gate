@@ -13,6 +13,7 @@ use Yaleksandr\HumanGate\Challenge\Purpose;
 use Yaleksandr\HumanGate\Session\NativeSessionStorageException;
 use Yaleksandr\HumanGate\Session\NativeSessionStorageFailureReason;
 use Yaleksandr\HumanGate\State\ActiveChallenge;
+use Yaleksandr\HumanGate\State\AnswerProof;
 use Yaleksandr\HumanGate\State\ChallengeBucket;
 use Yaleksandr\HumanGate\State\ChallengeTombstone;
 use Yaleksandr\HumanGate\State\TerminalReason;
@@ -54,7 +55,7 @@ final class SessionBucketCodec
         } catch (JsonException $exception) {
             throw new NativeSessionStorageException(NativeSessionStorageFailureReason::MalformedState, $exception);
         }
-        if (!is_array($data) || array_keys($data) !== ['schema', 'active', 'terminal', 'receipts'] || $data['schema'] !== 1
+        if (!is_array($data) || array_keys($data) !== ['schema', 'active', 'terminal', 'receipts'] || $data['schema'] !== 2
             || !is_array($data['active']) || !array_is_list($data['active'])
             || !is_array($data['terminal']) || !array_is_list($data['terminal'])) {
             self::malformed();
@@ -64,9 +65,11 @@ final class SessionBucketCodec
         $seen = [];
         try {
             foreach ($data['active'] as $record) {
-                if (!is_array($record) || array_keys($record) !== ['id', 'purpose', 'kind', 'issuedAt', 'expiresAt', 'wrongAttempts']
+                if (!is_array($record) || array_keys($record) !== ['id', 'purpose', 'kind', 'issuedAt', 'expiresAt', 'wrongAttempts', 'proof']
                     || !is_string($record['id']) || !is_string($record['purpose']) || !is_string($record['kind'])
-                    || !is_int($record['issuedAt']) || !is_int($record['expiresAt']) || !is_int($record['wrongAttempts'])) {
+                    || !is_int($record['issuedAt']) || !is_int($record['expiresAt']) || !is_int($record['wrongAttempts'])
+                    || !is_array($record['proof']) || array_keys($record['proof']) !== ['format', 'digest']
+                    || !is_int($record['proof']['format']) || !is_string($record['proof']['digest'])) {
                     self::malformed();
                 }
                 $active = new ActiveChallenge(
@@ -75,6 +78,7 @@ final class SessionBucketCodec
                     ChallengeKind::from($record['kind']),
                     $record['issuedAt'],
                     $record['expiresAt'],
+                    new AnswerProof($record['proof']['format'], $record['proof']['digest']),
                     $record['wrongAttempts'],
                 );
                 if (isset($seen[$record['id']])) {
@@ -120,16 +124,16 @@ final class SessionBucketCodec
     {
         [$active, $terminal] = self::records($bucket);
 
-        return self::json(['schema' => 1, 'active' => $active, 'terminal' => $terminal]);
+        return self::json(['schema' => 2, 'active' => $active, 'terminal' => $terminal]);
     }
 
     /** @param list<array{token: string, parent: ?string, payloadDigest: string}> $receipts */
     public static function encodeNamespace(ChallengeBucket $bucket, array $receipts, bool $enforceLimit = true): string
     {
         [$active, $terminal] = self::records($bucket);
-        $payload = self::json(['schema' => 1, 'active' => $active, 'terminal' => $terminal]);
+        $payload = self::json(['schema' => 2, 'active' => $active, 'terminal' => $terminal]);
         ReceiptChain::validate($receipts, $payload);
-        $json = self::json(['schema' => 1, 'active' => $active, 'terminal' => $terminal, 'receipts' => $receipts]);
+        $json = self::json(['schema' => 2, 'active' => $active, 'terminal' => $terminal, 'receipts' => $receipts]);
         if ($enforceLimit && strlen($json) > self::NAMESPACE_LIMIT) {
             throw new NativeSessionStorageException(NativeSessionStorageFailureReason::SizeLimit);
         }
@@ -137,14 +141,15 @@ final class SessionBucketCodec
         return $json;
     }
 
-    /** @return array{list<array{id: string, purpose: string, kind: string, issuedAt: int, expiresAt: int, wrongAttempts: int}>, list<array{id: string, purpose: string, reason: string, terminalAt: int, purgeAt: int}>} */
+    /** @return array{list<array{id: string, purpose: string, kind: string, issuedAt: int, expiresAt: int, wrongAttempts: int, proof: array{format: int, digest: string}}>, list<array{id: string, purpose: string, reason: string, terminalAt: int, purgeAt: int}>} */
     private static function records(ChallengeBucket $bucket): array
     {
         $active = [];
         $terminal = [];
         foreach ($bucket->activeChallenges() as $record) {
             $item = ['id' => $record->id->value(), 'purpose' => $record->purpose->value(), 'kind' => $record->kind->value,
-                'issuedAt' => $record->issuedAt, 'expiresAt' => $record->expiresAt, 'wrongAttempts' => $record->wrongAttempts];
+                'issuedAt' => $record->issuedAt, 'expiresAt' => $record->expiresAt, 'wrongAttempts' => $record->wrongAttempts,
+                'proof' => ['format' => $record->proof->format, 'digest' => $record->proof->digest]];
             if (strlen(self::json($item)) > self::ACTIVE_LIMIT) {
                 throw new NativeSessionStorageException(NativeSessionStorageFailureReason::SizeLimit);
             }

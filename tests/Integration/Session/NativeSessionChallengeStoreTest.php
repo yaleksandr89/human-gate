@@ -7,6 +7,7 @@ namespace Yaleksandr\HumanGate\Tests\Integration\Session;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
+use Yaleksandr\HumanGate\Challenge\ChallengeId;
 use Yaleksandr\HumanGate\Internal\Session\SessionBucketCodec;
 use Yaleksandr\HumanGate\Tests\Support\NativeSession\NativeSessionFixture;
 
@@ -36,7 +37,10 @@ final class NativeSessionChallengeStoreTest extends TestCase
         $saved = $fixture->run($serializer, 'inspect');
         self::assertSame('untouched', $saved['app']);
         self::assertIsString($saved['raw']);
-        self::assertCount(1, SessionBucketCodec::decode($saved['raw'])['receipts']);
+        $decoded = SessionBucketCodec::decode($saved['raw']);
+        self::assertCount(1, $decoded['receipts']);
+        self::assertStringStartsWith('{"schema":2,', $saved['raw']);
+        self::assertSame(str_repeat('a', 64), $decoded['bucket']->active(ChallengeId::fromString(str_repeat('a', 64)))?->proof->digest);
     }
 
     #[DataProvider('serializers')]
@@ -73,7 +77,7 @@ final class NativeSessionChallengeStoreTest extends TestCase
         $fixture->run($serializer, 'inject');
         $result = $fixture->run($serializer, 'issue');
         self::assertSame('malformed_state', $result['reason']);
-        self::assertSame('{"schema":1,"active":[],"terminal":[],"receipts":[]}', $fixture->run($serializer, 'inspect')['raw']);
+        self::assertSame('{"schema":2,"active":[],"terminal":[],"receipts":[]}', $fixture->run($serializer, 'inspect')['raw']);
     }
 
     #[DataProvider('serializers')]

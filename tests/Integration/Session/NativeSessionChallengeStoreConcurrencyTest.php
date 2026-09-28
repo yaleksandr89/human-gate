@@ -14,6 +14,18 @@ use Yaleksandr\HumanGate\Tests\Support\NativeSession\NativeSessionProcess;
 final class NativeSessionChallengeStoreConcurrencyTest extends TestCase
 {
     #[DataProviderExternal(NativeSessionChallengeStoreTest::class, 'serializers')]
+    #[TestDox('Две конкурирующие правильные проверки принимают ответ только один раз')]
+    public function testCompetingCorrectServiceVerification(string $serializer): void
+    {
+        $fixture = new NativeSessionFixture();
+        $fixture->run($serializer, 'init');
+        $fixture->run($serializer, 'seed_service');
+        [$first, $second] = NativeSessionProcess::concurrent($fixture->directory, $fixture->id, $serializer, 'verify_correct');
+        self::assertSame('accepted', $first['code']);
+        self::assertSame('already_consumed', $second['code']);
+    }
+
+    #[DataProviderExternal(NativeSessionChallengeStoreTest::class, 'serializers')]
     #[TestDox('Два конкурирующих использования дают только один успех')]
     public function testCompetingConsume(string $serializer): void
     {

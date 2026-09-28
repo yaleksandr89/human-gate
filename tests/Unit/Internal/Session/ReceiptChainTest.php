@@ -13,6 +13,7 @@ use Yaleksandr\HumanGate\Internal\Session\ReceiptChain;
 use Yaleksandr\HumanGate\Internal\Session\SessionBucketCodec;
 use Yaleksandr\HumanGate\Session\NativeSessionStorageException;
 use Yaleksandr\HumanGate\State\ActiveChallenge;
+use Yaleksandr\HumanGate\State\AnswerProof;
 use Yaleksandr\HumanGate\State\ChallengeBucket;
 
 #[TestDox('Цепочка квитанций подтверждает собственную запись')]
@@ -76,8 +77,8 @@ final class ReceiptChainTest extends TestCase
     public function testOldestFirstEviction(): void
     {
         $bucket = new ChallengeBucket();
-        for ($i = 0; $i < 225; ++$i) {
-            $bucket->setActive(new ActiveChallenge(ChallengeId::fromString(sprintf('%064x', $i)), new Purpose('login'), ChallengeKind::TextImage, 0, 1));
+        for ($i = 0; $i < 170; ++$i) {
+            $bucket->setActive(new ActiveChallenge(ChallengeId::fromString(sprintf('%064x', $i)), new Purpose('login'), ChallengeKind::TextImage, 0, 1, new AnswerProof(1, str_repeat('a', 64))));
         }
         $payload = SessionBucketCodec::encodePayload($bucket);
         $receipts = [];
@@ -98,7 +99,7 @@ final class ReceiptChainTest extends TestCase
     {
         $bucket = new ChallengeBucket();
         for ($i = 0; $i < 500; ++$i) {
-            $bucket->setActive(new ActiveChallenge(ChallengeId::fromString(sprintf('%064x', $i)), new Purpose('login'), ChallengeKind::TextImage, 0, 1));
+            $bucket->setActive(new ActiveChallenge(ChallengeId::fromString(sprintf('%064x', $i)), new Purpose('login'), ChallengeKind::TextImage, 0, 1, new AnswerProof(1, str_repeat('a', 64))));
         }
         $this->expectException(NativeSessionStorageException::class);
         ReceiptChain::appendAndFit($bucket, [], SessionBucketCodec::encodePayload($bucket));
