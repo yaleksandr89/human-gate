@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Yaleksandr\HumanGate\Challenge;
 
 use InvalidArgumentException;
+use Random\RandomException;
 
 final readonly class ChallengeId
 {
@@ -12,6 +13,12 @@ final readonly class ChallengeId
         private string $value,
     ) {}
 
+    /**
+     * EN: Generates an ID using cryptographically secure randomness, propagating source failures.
+     * RU: Создаёт ID из криптографически стойких случайных данных; ошибки источника передаются вызывающему коду.
+     *
+     * @throws RandomException
+     */
     public static function generate(): self
     {
         return new self(bin2hex(random_bytes(32)));

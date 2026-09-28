@@ -7,7 +7,8 @@ namespace Yaleksandr\HumanGate\Challenge;
 use InvalidArgumentException;
 
 /**
- * A logical binding selected by the server, never authoritatively by client input.
+ * EN: A logical purpose chosen by the server; client input is never an authoritative source for this value.
+ * RU: Логическое назначение, задаваемое сервером; клиентский ввод не является доверенным источником этого значения.
  */
 final readonly class Purpose
 {
