@@ -51,32 +51,86 @@ final class GdTextImageRenderer implements TextImageRenderer
             throw new RenderingException('Image allocation failed.');
         }
 
-        $background = @imagecolorallocate($image, 247, 249, 252);
+        $background = @imagecolorallocate($image, 241, 244, 248);
         $text = @imagecolorallocate($image, 31, 45, 67);
-        $line = @imagecolorallocate($image, 194, 203, 215);
-        $dot = @imagecolorallocate($image, 170, 184, 200);
-        if ($background === false || $text === false || $line === false || $dot === false) {
+        $line = @imagecolorallocate($image, 170, 183, 198);
+        $dot = @imagecolorallocate($image, 137, 154, 176);
+        $foregroundNoise = @imagecolorallocate($image, 112, 132, 157);
+
+        if (
+            $background === false
+            || $text === false
+            || $line === false
+            || $dot === false
+            || $foregroundNoise === false
+        ) {
             throw new RenderingException('Color allocation failed.');
         }
+
         if (!@imagefill($image, 0, 0, $background)) {
             throw new RenderingException('Background fill failed.');
         }
 
         for ($i = 0; $i < 3; ++$i) {
-            if (!@imageline($image, random_int(4, 40), random_int(16, 64), random_int(199, 235), random_int(16, 64), $line)) {
+            if (
+                !@imageline(
+                    $image,
+                    random_int(4, 40),
+                    random_int(16, 64),
+                    random_int(199, 235),
+                    random_int(16, 64),
+                    $line,
+                )
+            ) {
                 throw new RenderingException('Line noise rendering failed.');
             }
         }
-        for ($i = 0; $i < 2; ++$i) {
+
+        for ($i = 0; $i < 3; ++$i) {
             $arcWidth = random_int(48, 84);
             $arcHeight = random_int(20, 36);
-            if (!@imagearc($image, random_int(50, 190), random_int(30, 53), $arcWidth, $arcHeight, random_int(0, 120), random_int(180, 300), $line)) {
+
+            if (
+                !@imagearc(
+                    $image,
+                    random_int(50, 190),
+                    random_int(30, 53),
+                    $arcWidth,
+                    $arcHeight,
+                    random_int(0, 120),
+                    random_int(180, 300),
+                    $line,
+                )
+            ) {
                 throw new RenderingException('Curved noise rendering failed.');
             }
         }
-        for ($i = 0; $i < 110; ++$i) {
-            if (!@imagesetpixel($image, random_int(12, 228), random_int(12, 68), $dot)) {
+
+        for ($i = 0; $i < 180; ++$i) {
+            $y = random_int(0, 4) === 0
+                ? random_int(12, 68)
+                : random_int(23, 58);
+
+            if (!@imagesetpixel($image, random_int(12, 228), $y, $dot)) {
                 throw new RenderingException('Dot noise rendering failed.');
+            }
+        }
+
+        for ($i = 0; $i < 8; ++$i) {
+            $x = random_int(22, 210);
+            $y = random_int(26, 56);
+
+            if (
+                !@imageline(
+                    $image,
+                    $x,
+                    $y,
+                    min(228, $x + random_int(3, 10)),
+                    min(64, max(16, $y + random_int(-3, 3))),
+                    $dot,
+                )
+            ) {
+                throw new RenderingException('Short noise rendering failed.');
             }
         }
 
@@ -85,30 +139,94 @@ final class GdTextImageRenderer implements TextImageRenderer
             $baselineY = random_int(51, 53);
             $angle = random_int(-16, 16);
             $character = $canonicalAnswer[$i];
+
             $bbox = @imagettfbbox(28, $angle, $font, $character);
             if ($bbox === false) {
                 throw new RenderingException('Text bounding box failed.');
             }
+
             foreach ([0, 2, 4, 6] as $corner) {
-                if (!isset($bbox[$corner], $bbox[$corner + 1]) || !is_int($bbox[$corner]) || !is_int($bbox[$corner + 1])) {
+                if (
+                    !isset($bbox[$corner], $bbox[$corner + 1])
+                    || !is_int($bbox[$corner])
+                    || !is_int($bbox[$corner + 1])
+                ) {
                     throw new RenderingException('Text bounding box invalid.');
                 }
+
                 $absoluteX = $x + $bbox[$corner];
                 $absoluteY = $baselineY + $bbox[$corner + 1];
-                if ($absoluteX < 8 || $absoluteX > 235 || $absoluteY < 12 || $absoluteY > 68) {
+
+                if (
+                    $absoluteX < 8
+                    || $absoluteX > 235
+                    || $absoluteY < 12
+                    || $absoluteY > 68
+                ) {
                     throw new RenderingException('Text bounding box outside guard.');
                 }
             }
-            if (@imagettftext($image, 28, $angle, $x, $baselineY, $text, $font, $character) === false) {
+
+            if (
+                @imagettftext(
+                    $image,
+                    28,
+                    $angle,
+                    $x,
+                    $baselineY,
+                    $text,
+                    $font,
+                    $character,
+                ) === false
+            ) {
                 throw new RenderingException('Text rendering failed.');
             }
         }
 
-        if (!@imageline($image, random_int(12, 40), random_int(30, 48), random_int(200, 228), random_int(32, 50), $line)) {
+        if (
+            !@imageline(
+                $image,
+                random_int(12, 40),
+                random_int(30, 48),
+                random_int(200, 228),
+                random_int(32, 50),
+                $foregroundNoise,
+            )
+        ) {
             throw new RenderingException('Foreground line noise rendering failed.');
         }
-        if (!@imagearc($image, random_int(72, 168), random_int(32, 49), random_int(48, 76), random_int(22, 34), random_int(20, 100), random_int(190, 280), $line)) {
+
+        if (
+            !@imagearc(
+                $image,
+                random_int(72, 168),
+                random_int(32, 49),
+                random_int(48, 76),
+                random_int(22, 34),
+                random_int(20, 100),
+                random_int(190, 280),
+                $foregroundNoise,
+            )
+        ) {
             throw new RenderingException('Foreground curved noise rendering failed.');
+        }
+
+        for ($i = 0; $i < 2; ++$i) {
+            $x = random_int(30, 200);
+            $y = random_int(30, 48);
+
+            if (
+                !@imageline(
+                    $image,
+                    $x,
+                    $y,
+                    min(228, $x + random_int(5, 12)),
+                    min(58, max(22, $y + random_int(-4, 4))),
+                    $foregroundNoise,
+                )
+            ) {
+                throw new RenderingException('Foreground short noise rendering failed.');
+            }
         }
 
         $bufferLevel = ob_get_level();
