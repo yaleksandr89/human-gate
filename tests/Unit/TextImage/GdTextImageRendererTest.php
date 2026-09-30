@@ -11,8 +11,10 @@ use Throwable;
 use Yaleksandr\HumanGate\Internal\TextImage\TextImageAnswer;
 use Yaleksandr\HumanGate\Presentation\ImagePresentation;
 use Yaleksandr\HumanGate\TextImage\GdTextImageRenderer;
+use Yaleksandr\HumanGate\TextImage\TextImageBlur;
+use Yaleksandr\HumanGate\TextImage\TextImageRenderOptions;
 
-#[TestDox('GD-рендерер текстового изображения соблюдает фиксированный профиль')]
+#[TestDox('GD-рендерер текстового изображения соблюдает настраиваемый профиль')]
 final class GdTextImageRendererTest extends TestCase
 {
     #[TestDox('Шрифт и лицензия имеют проверенное происхождение')]
@@ -59,6 +61,101 @@ final class GdTextImageRendererTest extends TestCase
         }
     }
 
+    #[TestDox('Все масштабы и пресеты размытия дают ограниченный PNG ожидаемого размера')]
+    public function testSupportedScalesAndBlurPresets(): void
+    {
+        foreach ([100, 105, 110, 115, 120] as $scale) {
+            foreach (TextImageBlur::cases() as $blur) {
+                $renderer = new GdTextImageRenderer(new TextImageRenderOptions(scalePercent: $scale, blur: $blur));
+                $this->assertPng($renderer->render('WMQXY2'), (int) (240 * $scale / 100), (int) (80 * $scale / 100));
+            }
+        }
+    }
+
+    #[TestDox('Весь канонический алфавит помещается на границах шума и поворота при каждом масштабе')]
+    public function testCanonicalAlphabetAtSupportedBoundaries(): void
+    {
+        foreach ([100, 105, 110, 115, 120] as $scale) {
+            foreach ([0, 28] as $rotation) {
+                foreach ([0, 150] as $noise) {
+                    $renderer = new GdTextImageRenderer(new TextImageRenderOptions(
+                        scalePercent: $scale,
+                        blur: TextImageBlur::Strong,
+                        lightNoisePercent: $noise,
+                        maxRotationDegrees: $rotation,
+                    ));
+                    foreach (str_split(TextImageAnswer::ALPHABET) as $character) {
+                        $this->assertPng($renderer->render(str_repeat($character, 6)), (int) (240 * $scale / 100), (int) (80 * $scale / 100));
+                    }
+                }
+            }
+        }
+    }
+
+    #[TestDox('Все глифы при каждом допустимом угле имеют безопасный интервал базовой линии и шестисимвольное размещение')]
+    public function testDeterministicCanonicalGlyphGeometry(): void
+    {
+        $font = dirname(__DIR__, 3) . '/resources/fonts/NotoSans-Regular.ttf';
+        foreach ([100, 105, 110, 115, 120] as $scale) {
+            $scaled = static fn(int $coordinate): int => (int) round($coordinate * $scale / 100);
+            $envelopes = [];
+            $mostNegativeBearing = 0;
+            foreach (str_split(TextImageAnswer::ALPHABET) as $character) {
+                // Every smaller public rotation limit selects a subset of these integer angles.
+                foreach (range(-28, 28) as $angle) {
+                    $context = "scale=$scale glyph=$character angle=$angle";
+                    $bbox = imagettfbbox(28 * $scale / 100, $angle, $font, $character);
+                    self::assertIsArray($bbox, $context);
+                    self::assertCount(8, $bbox, $context);
+                    self::assertContainsOnlyInt($bbox, $context);
+                    $minX = min($bbox[0], $bbox[2], $bbox[4], $bbox[6]);
+                    $maxX = max($bbox[0], $bbox[2], $bbox[4], $bbox[6]);
+                    $minY = min($bbox[1], $bbox[3], $bbox[5], $bbox[7]);
+                    $maxY = max($bbox[1], $bbox[3], $bbox[5], $bbox[7]);
+                    $baselineMin = max($scaled(41), $scaled(10) - $minY);
+                    $baselineMax = min($scaled(62), $scaled(70) - $maxY);
+
+                    self::assertGreaterThan($baselineMin, $baselineMax, $context);
+                    self::assertGreaterThanOrEqual($scaled(8), $baselineMin + $minY, $context);
+                    self::assertLessThanOrEqual($scaled(72), $baselineMax + $maxY, $context);
+                    $correctedMinX = max($scaled(18), $scaled(6) - $minX);
+                    self::assertGreaterThanOrEqual($scaled(6), $correctedMinX + $minX, $context);
+
+                    $mostNegativeBearing = min($mostNegativeBearing, $minX);
+                    $envelopes[] = [$maxX, $context];
+                }
+            }
+
+            // This bound covers any first glyph and every later left-bearing correction:
+            // advances are positive, and no correction can exceed the same global threshold.
+            $worstInitialX = max($scaled(22), $scaled(6) - $mostNegativeBearing);
+            $worstSixthX = $worstInitialX + 5 * $scaled(31);
+            foreach ($envelopes as [$maxX, $context]) {
+                self::assertLessThanOrEqual($scaled(234), $worstSixthX + $maxX, $context);
+            }
+        }
+    }
+
+    #[TestDox('Масштабирование всех случайных координат сохраняет непустые диапазоны с различными границами')]
+    public function testScaledGeometryRandomRangesDoNotCollapse(): void
+    {
+        // Canonical coordinate ranges used for glyph placement, noise bands, lines, arcs and marks.
+        $ranges = [
+            [18, 22], [25, 31], [8, 71], [19, 62], [6, 233], [4, 40],
+            [16, 64], [199, 235], [48, 84], [20, 36], [50, 190], [30, 53],
+            [12, 68], [23, 58], [12, 228], [22, 210], [26, 56], [3, 10],
+            [-3, 3], [12, 40], [30, 48], [200, 228], [32, 50], [-10, 10],
+            [30, 51], [48, 78], [22, 36], [30, 200], [29, 50], [5, 14], [-5, 5],
+        ];
+        foreach ([100, 105, 110, 115, 120] as $scale) {
+            foreach ($ranges as [$min, $max]) {
+                $scaledMin = (int) round($min * $scale / 100);
+                $scaledMax = (int) round($max * $scale / 100);
+                self::assertGreaterThan($scaledMin, $scaledMax, "scale=$scale range=$min..$max");
+            }
+        }
+    }
+
     #[TestDox('Неканонический ввод отклоняется без раскрытия ответа')]
     public function testInvalidDirectInput(): void
     {
@@ -82,7 +179,12 @@ final class GdTextImageRendererTest extends TestCase
         $callerLevel = ob_get_level();
         try {
             echo 'caller content';
-            $presentation = new GdTextImageRenderer()->render('234567');
+            $presentation = new GdTextImageRenderer(new TextImageRenderOptions(
+                scalePercent: 120,
+                blur: TextImageBlur::Strong,
+                lightNoisePercent: 150,
+                maxRotationDegrees: 28,
+            ))->render('234567');
             self::assertSame($originalLevel + 1, $callerLevel);
             self::assertSame($callerLevel, ob_get_level());
             self::assertSame('caller content', ob_get_contents());
@@ -131,11 +233,11 @@ final class GdTextImageRendererTest extends TestCase
         self::assertStringNotContainsString('imagedestroy(', $source);
     }
 
-    private function assertPng(ImagePresentation $presentation): void
+    private function assertPng(ImagePresentation $presentation, int $width = 240, int $height = 80): void
     {
         self::assertSame('image/png', $presentation->mimeType);
-        self::assertSame(240, $presentation->width);
-        self::assertSame(80, $presentation->height);
+        self::assertSame($width, $presentation->width);
+        self::assertSame($height, $presentation->height);
         self::assertNotSame('', $presentation->bytes);
         self::assertLessThanOrEqual(131072, strlen($presentation->bytes));
         self::assertStringStartsWith(
@@ -144,8 +246,8 @@ final class GdTextImageRendererTest extends TestCase
         );
         $metadata = getimagesizefromstring($presentation->bytes);
         self::assertIsArray($metadata);
-        self::assertSame(240, $metadata[0]);
-        self::assertSame(80, $metadata[1]);
+        self::assertSame($width, $metadata[0]);
+        self::assertSame($height, $metadata[1]);
         self::assertSame(IMAGETYPE_PNG, $metadata[2]);
         self::assertSame('image/png', $metadata['mime']);
     }

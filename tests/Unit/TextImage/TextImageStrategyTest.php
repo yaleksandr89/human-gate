@@ -15,11 +15,14 @@ use Yaleksandr\HumanGate\Internal\TextImage\TextImageAnswer;
 use Yaleksandr\HumanGate\Port\TextImageRenderer;
 use Yaleksandr\HumanGate\Presentation\ImagePresentation;
 use Yaleksandr\HumanGate\State\ActiveChallenge;
+use Yaleksandr\HumanGate\TextImage\GdTextImageRenderer;
+use Yaleksandr\HumanGate\TextImage\TextImageRenderOptions;
 use Yaleksandr\HumanGate\TextImage\TextImageStrategy;
 
 #[TestDox('Текстовое изображение создаёт и проверяет ответ по строгим правилам')]
 final class TextImageStrategyTest extends TestCase
 {
+    #[TestDox('Генерация и проверка сохраняют строгие правила ответа')]
     public function testGenerationAndVerification(): void
     {
         $renderer = new class implements TextImageRenderer {
@@ -53,7 +56,8 @@ final class TextImageStrategyTest extends TestCase
         self::assertFalse($strategy->verify($active, $renderer->answer === '234567' ? '234568' : '234567'));
     }
 
-    public function testRendererFailureAndProfileRejection(): void
+    #[TestDox('Ошибка рендерера передаётся вызывающей стороне без замены')]
+    public function testRendererFailurePropagates(): void
     {
         $id = ChallengeId::fromString(str_repeat('a', 64));
         $purpose = new Purpose('login');
@@ -64,12 +68,39 @@ final class TextImageStrategyTest extends TestCase
             }
         });
         $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/^render failed$/');
         $failing->prepare($id, $purpose);
     }
 
-    public function testWrongProfileRejected(): void
+    #[TestDox('PNG увеличенного размера принимается с сохранением проверки ответа')]
+    public function testScaledPngAccepted(): void
     {
-        foreach ([['image/jpeg', 240, 80], ['image/png', 241, 80], ['image/png', 240, 81]] as [$mime, $width, $height]) {
+        $renderer = new class implements TextImageRenderer {
+            public string $answer = '';
+
+            public function render(string $canonicalAnswer): ImagePresentation
+            {
+                $this->answer = $canonicalAnswer;
+
+                return new GdTextImageRenderer(new TextImageRenderOptions(scalePercent: 120))->render($canonicalAnswer);
+            }
+        };
+        $strategy = new TextImageStrategy($renderer);
+        $id = ChallengeId::fromString(str_repeat('a', 64));
+        $purpose = new Purpose('login');
+        $prepared = $strategy->prepare($id, $purpose);
+        self::assertInstanceOf(ImagePresentation::class, $prepared->presentation);
+        self::assertSame(288, $prepared->presentation->width);
+        self::assertSame(96, $prepared->presentation->height);
+        self::assertSame('image/png', $prepared->presentation->mimeType);
+        $active = new ActiveChallenge($id, $purpose, ChallengeKind::TextImage, 1000, 1180, $prepared->proof);
+        self::assertTrue($strategy->verify($active, $renderer->answer));
+    }
+
+    #[TestDox('Презентация с MIME вне PNG отклоняется')]
+    public function testNonPngMimeRejected(): void
+    {
+        foreach ([['image/jpeg', 240, 80], ['image/webp', 288, 96]] as [$mime, $width, $height]) {
             $renderer = new class ($mime, $width, $height) implements TextImageRenderer {
                 public function __construct(private string $mime, private int $width, private int $height) {}
 
