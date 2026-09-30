@@ -35,7 +35,7 @@ final class GdTextImageRenderer implements TextImageRenderer
             throw new InvalidArgumentException('Invalid TextImage answer.');
         }
 
-        foreach (['imagecreatetruecolor', 'imagecolorallocate', 'imagefill', 'imagesetpixel', 'imageline', 'imagearc', 'imagettfbbox', 'imagettftext', 'imagepng', 'getimagesizefromstring'] as $function) {
+        foreach (['imagecreatetruecolor', 'imagecolorallocate', 'imagefill', 'imagesetpixel', 'imageline', 'imagearc', 'imagettfbbox', 'imagettftext', 'imageconvolution', 'imagecopy', 'imagepng', 'getimagesizefromstring'] as $function) {
             if (!function_exists($function)) {
                 throw new RenderingException('Required GD or FreeType capability unavailable.');
             }
@@ -51,18 +51,18 @@ final class GdTextImageRenderer implements TextImageRenderer
             throw new RenderingException('Image allocation failed.');
         }
 
-        $background = @imagecolorallocate($image, 213, 219, 227);
-        $text = @imagecolorallocate($image, 49, 61, 79);
-        $line = @imagecolorallocate($image, 143, 156, 174);
-        $dot = @imagecolorallocate($image, 113, 130, 151);
-        $foregroundNoise = @imagecolorallocate($image, 95, 114, 137);
+        $background = @imagecolorallocate($image, 188, 197, 208);
+        $line = @imagecolorallocate($image, 108, 124, 145);
+        $dot = @imagecolorallocate($image, 81, 100, 124);
+        $foregroundNoise = @imagecolorallocate($image, 64, 82, 105);
+        $lightNoise = @imagecolorallocate($image, 226, 231, 237);
 
         if (
             $background === false
-            || $text === false
             || $line === false
             || $dot === false
             || $foregroundNoise === false
+            || $lightNoise === false
         ) {
             throw new RenderingException('Color allocation failed.');
         }
@@ -71,7 +71,106 @@ final class GdTextImageRenderer implements TextImageRenderer
             throw new RenderingException('Background fill failed.');
         }
 
+        $textLayer = @imagecreatetruecolor(self::WIDTH, self::HEIGHT);
+        /** @var GdImage|false $textLayer */
+        if ($textLayer === false) {
+            throw new RenderingException('Text layer allocation failed.');
+        }
+        $textLayerBackground = @imagecolorallocate($textLayer, 188, 197, 208);
+        $textLayerColor = @imagecolorallocate($textLayer, 39, 52, 70);
+        if ($textLayerBackground === false || $textLayerColor === false) {
+            throw new RenderingException('Text layer color allocation failed.');
+        }
+        if (!@imagefill($textLayer, 0, 0, $textLayerBackground)) {
+            throw new RenderingException('Text layer fill failed.');
+        }
+
+        $x = random_int(18, 22);
+        for ($i = 0; $i < 6; ++$i) {
+            $angle = random_int(-28, 28);
+            $character = $canonicalAnswer[$i];
+
+            $bbox = @imagettfbbox(28, $angle, $font, $character);
+            if ($bbox === false) {
+                throw new RenderingException('Text bounding box failed.');
+            }
+
+            foreach ([0, 2, 4, 6] as $corner) {
+                if (
+                    !isset($bbox[$corner], $bbox[$corner + 1])
+                    || !is_int($bbox[$corner])
+                    || !is_int($bbox[$corner + 1])
+                ) {
+                    throw new RenderingException('Text bounding box invalid.');
+                }
+            }
+
+            $minX = min($bbox[0], $bbox[2], $bbox[4], $bbox[6]);
+            $maxX = max($bbox[0], $bbox[2], $bbox[4], $bbox[6]);
+            $minY = min($bbox[1], $bbox[3], $bbox[5], $bbox[7]);
+            $maxY = max($bbox[1], $bbox[3], $bbox[5], $bbox[7]);
+
+            $baselineMin = max(41, 10 - $minY);
+            $baselineMax = min(62, 70 - $maxY);
+            $baselineRange = $baselineMax - $baselineMin;
+            if ($baselineRange < 0) {
+                throw new RenderingException('Text baseline outside guard.');
+            }
+            $baselineY = $baselineMin + random_int(0, $baselineRange);
+
+            if (
+                $x + $minX < 6
+                || $x + $maxX > 234
+                || $baselineY + $minY < 8
+                || $baselineY + $maxY > 72
+            ) {
+                throw new RenderingException('Text bounding box outside guard.');
+            }
+
+            if (
+                @imagettftext(
+                    $textLayer,
+                    28,
+                    $angle,
+                    $x,
+                    $baselineY,
+                    $textLayerColor,
+                    $font,
+                    $character,
+                ) === false
+            ) {
+                throw new RenderingException('Text rendering failed.');
+            }
+
+            $x += random_int(25, 31);
+        }
+
+        $gaussian = [
+            [1.0, 2.0, 1.0],
+            [2.0, 4.0, 2.0],
+            [1.0, 2.0, 1.0],
+        ];
         for ($i = 0; $i < 3; ++$i) {
+            if (!@imageconvolution($textLayer, $gaussian, 16.0, 0.0)) {
+                throw new RenderingException('Text blur failed.');
+            }
+        }
+
+        if (!@imagecopy($image, $textLayer, 0, 0, 0, 0, self::WIDTH, self::HEIGHT)) {
+            throw new RenderingException('Text layer compositing failed.');
+        }
+
+        for ($i = 0; $i < 190; ++$i) {
+            $y = random_int(0, 4) === 0
+                ? random_int(8, 71)
+                : random_int(19, 62);
+
+            if (!@imagesetpixel($image, random_int(6, 233), $y, $lightNoise)) {
+                throw new RenderingException('Light noise rendering failed.');
+            }
+        }
+
+        for ($i = 0; $i < 4; ++$i) {
             if (
                 !@imageline(
                     $image,
@@ -86,7 +185,7 @@ final class GdTextImageRenderer implements TextImageRenderer
             }
         }
 
-        for ($i = 0; $i < 4; ++$i) {
+        for ($i = 0; $i < 5; ++$i) {
             $arcWidth = random_int(48, 84);
             $arcHeight = random_int(20, 36);
 
@@ -106,8 +205,8 @@ final class GdTextImageRenderer implements TextImageRenderer
             }
         }
 
-        for ($i = 0; $i < 248; ++$i) {
-            $y = random_int(0, 9) === 0
+        for ($i = 0; $i < 320; ++$i) {
+            $y = random_int(0, 11) === 0
                 ? random_int(12, 68)
                 : random_int(23, 58);
 
@@ -116,7 +215,7 @@ final class GdTextImageRenderer implements TextImageRenderer
             }
         }
 
-        for ($i = 0; $i < 14; ++$i) {
+        for ($i = 0; $i < 20; ++$i) {
             $x = random_int(22, 210);
             $y = random_int(26, 56);
 
@@ -134,60 +233,6 @@ final class GdTextImageRenderer implements TextImageRenderer
             }
         }
 
-        for ($i = 0; $i < 6; ++$i) {
-            $x = 22 + (34 * $i) + random_int(-2, 2);
-            $baselineY = random_int(51, 53);
-            $angle = random_int(-16, 16);
-            $character = $canonicalAnswer[$i];
-
-            $bbox = @imagettfbbox(28, $angle, $font, $character);
-            if ($bbox === false) {
-                throw new RenderingException('Text bounding box failed.');
-            }
-
-            foreach ([0, 2, 4, 6] as $corner) {
-                if (
-                    !isset($bbox[$corner], $bbox[$corner + 1])
-                    || !is_int($bbox[$corner])
-                    || !is_int($bbox[$corner + 1])
-                ) {
-                    throw new RenderingException('Text bounding box invalid.');
-                }
-
-                $absoluteX = $x + $bbox[$corner];
-                $absoluteY = $baselineY + $bbox[$corner + 1];
-
-                if (
-                    $absoluteX - 1 < 8
-                    || $absoluteX + 1 > 235
-                    || $absoluteY - 1 < 12
-                    || $absoluteY + 1 > 68
-                ) {
-                    throw new RenderingException('Text bounding box outside guard.');
-                }
-            }
-
-            $offsetX = random_int(0, 1) === 0 ? -1 : 1;
-            $offsetY = random_int(0, 1) === 0 ? -1 : 1;
-
-            foreach ([[$offsetX, $offsetY, $line], [-$offsetX, -$offsetY, $dot], [0, 0, $text]] as [$dx, $dy, $color]) {
-                if (
-                    @imagettftext(
-                        $image,
-                        28,
-                        $angle,
-                        $x + $dx,
-                        $baselineY + $dy,
-                        $color,
-                        $font,
-                        $character,
-                    ) === false
-                ) {
-                    throw new RenderingException('Text rendering failed.');
-                }
-            }
-        }
-
         if (
             !@imageline(
                 $image,
@@ -201,14 +246,14 @@ final class GdTextImageRenderer implements TextImageRenderer
             throw new RenderingException('Foreground line noise rendering failed.');
         }
 
-        for ($i = 0; $i < 2; ++$i) {
+        for ($i = 0; $i < 3; ++$i) {
             if (
                 !@imagearc(
                     $image,
-                    65 + (100 * $i) + random_int(-10, 10),
-                    random_int(32, 49),
-                    random_int(48, 76),
-                    random_int(22, 34),
+                    50 + (70 * $i) + random_int(-10, 10),
+                    random_int(30, 51),
+                    random_int(48, 78),
+                    random_int(22, 36),
                     random_int(20, 100),
                     random_int(190, 280),
                     $foregroundNoise,
@@ -218,17 +263,17 @@ final class GdTextImageRenderer implements TextImageRenderer
             }
         }
 
-        for ($i = 0; $i < 4; ++$i) {
+        for ($i = 0; $i < 6; ++$i) {
             $x = random_int(30, 200);
-            $y = random_int(30, 48);
+            $y = random_int(29, 50);
 
             if (
                 !@imageline(
                     $image,
                     $x,
                     $y,
-                    min(228, $x + random_int(5, 12)),
-                    min(58, max(22, $y + random_int(-4, 4))),
+                    min(228, $x + random_int(5, 14)),
+                    min(60, max(20, $y + random_int(-5, 5))),
                     $foregroundNoise,
                 )
             ) {
