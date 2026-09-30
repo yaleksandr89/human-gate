@@ -13,8 +13,8 @@ use Yaleksandr\HumanGate\Port\TextImageRenderer;
 use Yaleksandr\HumanGate\Presentation\ImagePresentation;
 
 /**
- * EN: Renders the fixed TextImage profile using the package-owned Noto Sans font.
- * RU: Создаёт изображение по фиксированному профилю TextImage со шрифтом Noto Sans из пакета.
+ * EN: Renders the configurable TextImage profile using the package-owned Noto Sans font.
+ * RU: Создаёт изображение по настраиваемому профилю TextImage со шрифтом Noto Sans из пакета.
  */
 final class GdTextImageRenderer implements TextImageRenderer
 {
@@ -22,6 +22,18 @@ final class GdTextImageRenderer implements TextImageRenderer
     private const int HEIGHT = 80;
     private const int MAX_PNG_BYTES = 131072;
     private const string PNG_SIGNATURE = "\x89PNG\r\n\x1a\n";
+
+    public function __construct(private readonly TextImageRenderOptions $options = new TextImageRenderOptions()) {}
+
+    private function scaled(int $coordinate): int
+    {
+        return (int) round($coordinate * $this->options->scalePercent / 100);
+    }
+
+    private function randomCoordinate(int $min, int $max): int
+    {
+        return random_int($this->scaled($min), $this->scaled($max));
+    }
 
     /**
      * EN: Renders only a canonical six-character answer; random-source failures propagate.
@@ -46,7 +58,14 @@ final class GdTextImageRenderer implements TextImageRenderer
             throw new RenderingException('Package font unavailable.');
         }
 
-        $image = @imagecreatetruecolor(self::WIDTH, self::HEIGHT);
+        $width = $this->scaled(self::WIDTH);
+        $height = $this->scaled(self::HEIGHT);
+        if ($width < 1 || $height < 1) {
+            throw new RenderingException('Image dimensions invalid.');
+        }
+        $fontSize = 28 * $this->options->scalePercent / 100;
+
+        $image = @imagecreatetruecolor($width, $height);
         if (!$image instanceof GdImage) {
             throw new RenderingException('Image allocation failed.');
         }
@@ -71,7 +90,7 @@ final class GdTextImageRenderer implements TextImageRenderer
             throw new RenderingException('Background fill failed.');
         }
 
-        $textLayer = @imagecreatetruecolor(self::WIDTH, self::HEIGHT);
+        $textLayer = @imagecreatetruecolor($width, $height);
         /** @var GdImage|false $textLayer */
         if ($textLayer === false) {
             throw new RenderingException('Text layer allocation failed.');
@@ -85,12 +104,12 @@ final class GdTextImageRenderer implements TextImageRenderer
             throw new RenderingException('Text layer fill failed.');
         }
 
-        $x = random_int(18, 22);
+        $x = $this->randomCoordinate(18, 22);
         for ($i = 0; $i < 6; ++$i) {
-            $angle = random_int(-28, 28);
+            $angle = random_int(-$this->options->maxRotationDegrees, $this->options->maxRotationDegrees);
             $character = $canonicalAnswer[$i];
 
-            $bbox = @imagettfbbox(28, $angle, $font, $character);
+            $bbox = @imagettfbbox($fontSize, $angle, $font, $character);
             if ($bbox === false) {
                 throw new RenderingException('Text bounding box failed.');
             }
@@ -110,8 +129,12 @@ final class GdTextImageRenderer implements TextImageRenderer
             $minY = min($bbox[1], $bbox[3], $bbox[5], $bbox[7]);
             $maxY = max($bbox[1], $bbox[3], $bbox[5], $bbox[7]);
 
-            $baselineMin = max(41, 10 - $minY);
-            $baselineMax = min(62, 70 - $maxY);
+            // EN: Keep negative glyph bearings inside the scaled left guard.
+            // RU: Удерживаем отрицательный вынос глифа внутри масштабированной левой границы.
+            $x = max($x, $this->scaled(6) - $minX);
+
+            $baselineMin = max($this->scaled(41), $this->scaled(10) - $minY);
+            $baselineMax = min($this->scaled(62), $this->scaled(70) - $maxY);
             $baselineRange = $baselineMax - $baselineMin;
             if ($baselineRange < 0) {
                 throw new RenderingException('Text baseline outside guard.');
@@ -119,10 +142,10 @@ final class GdTextImageRenderer implements TextImageRenderer
             $baselineY = $baselineMin + random_int(0, $baselineRange);
 
             if (
-                $x + $minX < 6
-                || $x + $maxX > 234
-                || $baselineY + $minY < 8
-                || $baselineY + $maxY > 72
+                $x + $minX < $this->scaled(6)
+                || $x + $maxX > $this->scaled(234)
+                || $baselineY + $minY < $this->scaled(8)
+                || $baselineY + $maxY > $this->scaled(72)
             ) {
                 throw new RenderingException('Text bounding box outside guard.');
             }
@@ -130,7 +153,7 @@ final class GdTextImageRenderer implements TextImageRenderer
             if (
                 @imagettftext(
                     $textLayer,
-                    28,
+                    $fontSize,
                     $angle,
                     $x,
                     $baselineY,
@@ -142,7 +165,7 @@ final class GdTextImageRenderer implements TextImageRenderer
                 throw new RenderingException('Text rendering failed.');
             }
 
-            $x += random_int(25, 31);
+            $x += $this->randomCoordinate(25, 31);
         }
 
         $gaussian = [
@@ -150,22 +173,29 @@ final class GdTextImageRenderer implements TextImageRenderer
             [2.0, 4.0, 2.0],
             [1.0, 2.0, 1.0],
         ];
-        for ($i = 0; $i < 3; ++$i) {
+        $blurPasses = match ($this->options->blur) {
+            TextImageBlur::None => 0,
+            TextImageBlur::Light => 1,
+            TextImageBlur::Standard => 3,
+            TextImageBlur::Strong => 4,
+        };
+        for ($i = 0; $i < $blurPasses; ++$i) {
             if (!@imageconvolution($textLayer, $gaussian, 16.0, 0.0)) {
                 throw new RenderingException('Text blur failed.');
             }
         }
 
-        if (!@imagecopy($image, $textLayer, 0, 0, 0, 0, self::WIDTH, self::HEIGHT)) {
+        if (!@imagecopy($image, $textLayer, 0, 0, 0, 0, $width, $height)) {
             throw new RenderingException('Text layer compositing failed.');
         }
 
-        for ($i = 0; $i < 190; ++$i) {
+        $lightNoiseCount = (int) round(190 * $this->options->lightNoisePercent / 100 * ($this->options->scalePercent / 100) ** 2);
+        for ($i = 0; $i < $lightNoiseCount; ++$i) {
             $y = random_int(0, 4) === 0
-                ? random_int(8, 71)
-                : random_int(19, 62);
+                ? $this->randomCoordinate(8, 71)
+                : $this->randomCoordinate(19, 62);
 
-            if (!@imagesetpixel($image, random_int(6, 233), $y, $lightNoise)) {
+            if (!@imagesetpixel($image, $this->randomCoordinate(6, 233), $y, $lightNoise)) {
                 throw new RenderingException('Light noise rendering failed.');
             }
         }
@@ -174,10 +204,10 @@ final class GdTextImageRenderer implements TextImageRenderer
             if (
                 !@imageline(
                     $image,
-                    random_int(4, 40),
-                    random_int(16, 64),
-                    random_int(199, 235),
-                    random_int(16, 64),
+                    $this->randomCoordinate(4, 40),
+                    $this->randomCoordinate(16, 64),
+                    $this->randomCoordinate(199, 235),
+                    $this->randomCoordinate(16, 64),
                     $line,
                 )
             ) {
@@ -186,14 +216,14 @@ final class GdTextImageRenderer implements TextImageRenderer
         }
 
         for ($i = 0; $i < 5; ++$i) {
-            $arcWidth = random_int(48, 84);
-            $arcHeight = random_int(20, 36);
+            $arcWidth = $this->randomCoordinate(48, 84);
+            $arcHeight = $this->randomCoordinate(20, 36);
 
             if (
                 !@imagearc(
                     $image,
-                    random_int(50, 190),
-                    random_int(30, 53),
+                    $this->randomCoordinate(50, 190),
+                    $this->randomCoordinate(30, 53),
                     $arcWidth,
                     $arcHeight,
                     random_int(0, 120),
@@ -207,25 +237,25 @@ final class GdTextImageRenderer implements TextImageRenderer
 
         for ($i = 0; $i < 320; ++$i) {
             $y = random_int(0, 11) === 0
-                ? random_int(12, 68)
-                : random_int(23, 58);
+                ? $this->randomCoordinate(12, 68)
+                : $this->randomCoordinate(23, 58);
 
-            if (!@imagesetpixel($image, random_int(12, 228), $y, $dot)) {
+            if (!@imagesetpixel($image, $this->randomCoordinate(12, 228), $y, $dot)) {
                 throw new RenderingException('Dot noise rendering failed.');
             }
         }
 
         for ($i = 0; $i < 20; ++$i) {
-            $x = random_int(22, 210);
-            $y = random_int(26, 56);
+            $x = $this->randomCoordinate(22, 210);
+            $y = $this->randomCoordinate(26, 56);
 
             if (
                 !@imageline(
                     $image,
                     $x,
                     $y,
-                    min(228, $x + random_int(3, 10)),
-                    min(64, max(16, $y + random_int(-3, 3))),
+                    min($this->scaled(228), $x + $this->randomCoordinate(3, 10)),
+                    min($this->scaled(64), max($this->scaled(16), $y + $this->randomCoordinate(-3, 3))),
                     $dot,
                 )
             ) {
@@ -236,10 +266,10 @@ final class GdTextImageRenderer implements TextImageRenderer
         if (
             !@imageline(
                 $image,
-                random_int(12, 40),
-                random_int(30, 48),
-                random_int(200, 228),
-                random_int(32, 50),
+                $this->randomCoordinate(12, 40),
+                $this->randomCoordinate(30, 48),
+                $this->randomCoordinate(200, 228),
+                $this->randomCoordinate(32, 50),
                 $foregroundNoise,
             )
         ) {
@@ -250,10 +280,10 @@ final class GdTextImageRenderer implements TextImageRenderer
             if (
                 !@imagearc(
                     $image,
-                    50 + (70 * $i) + random_int(-10, 10),
-                    random_int(30, 51),
-                    random_int(48, 78),
-                    random_int(22, 36),
+                    $this->scaled(50 + (70 * $i)) + $this->randomCoordinate(-10, 10),
+                    $this->randomCoordinate(30, 51),
+                    $this->randomCoordinate(48, 78),
+                    $this->randomCoordinate(22, 36),
                     random_int(20, 100),
                     random_int(190, 280),
                     $foregroundNoise,
@@ -264,16 +294,16 @@ final class GdTextImageRenderer implements TextImageRenderer
         }
 
         for ($i = 0; $i < 6; ++$i) {
-            $x = random_int(30, 200);
-            $y = random_int(29, 50);
+            $x = $this->randomCoordinate(30, 200);
+            $y = $this->randomCoordinate(29, 50);
 
             if (
                 !@imageline(
                     $image,
                     $x,
                     $y,
-                    min(228, $x + random_int(5, 14)),
-                    min(60, max(20, $y + random_int(-5, 5))),
+                    min($this->scaled(228), $x + $this->randomCoordinate(5, 14)),
+                    min($this->scaled(60), max($this->scaled(20), $y + $this->randomCoordinate(-5, 5))),
                     $foregroundNoise,
                 )
             ) {
@@ -308,10 +338,10 @@ final class GdTextImageRenderer implements TextImageRenderer
             throw new RenderingException('PNG signature invalid.');
         }
         $metadata = @getimagesizefromstring($bytes);
-        if ($metadata === false || $metadata[0] !== self::WIDTH || $metadata[1] !== self::HEIGHT || $metadata[2] !== IMAGETYPE_PNG || $metadata['mime'] !== 'image/png') {
+        if ($metadata === false || $metadata[0] !== $width || $metadata[1] !== $height || $metadata[2] !== IMAGETYPE_PNG || $metadata['mime'] !== 'image/png') {
             throw new RenderingException('PNG metadata invalid.');
         }
 
-        return new ImagePresentation('image/png', $bytes, self::WIDTH, self::HEIGHT);
+        return new ImagePresentation('image/png', $bytes, $width, $height);
     }
 }

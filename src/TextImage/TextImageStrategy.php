@@ -31,7 +31,7 @@ final readonly class TextImageStrategy implements ChallengeStrategy
     {
         $answer = TextImageAnswer::generate();
         $presentation = $this->renderer->render($answer);
-        if ($presentation->mimeType !== 'image/png' || $presentation->width !== 240 || $presentation->height !== 80) {
+        if ($presentation->mimeType !== 'image/png') {
             throw new InvalidArgumentException('Invalid TextImage presentation.');
         }
 
