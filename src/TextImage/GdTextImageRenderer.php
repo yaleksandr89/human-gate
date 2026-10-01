@@ -43,7 +43,7 @@ final class GdTextImageRenderer implements TextImageRenderer
      */
     public function render(string $canonicalAnswer): ImagePresentation
     {
-        if (strlen($canonicalAnswer) !== 6 || strspn($canonicalAnswer, TextImageAnswer::ALPHABET) !== 6) {
+        if (strlen($canonicalAnswer) !== 6 || strspn($canonicalAnswer, TextImageAnswer::RENDERABLE_ALPHABET) !== 6) {
             throw new InvalidArgumentException('Invalid TextImage answer.');
         }
 
