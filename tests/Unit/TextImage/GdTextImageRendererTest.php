@@ -53,10 +53,10 @@ final class GdTextImageRendererTest extends TestCase
     public function testCanonicalAnswersRenderAsPng(): void
     {
         $renderer = new GdTextImageRenderer();
-        foreach (['234567', 'ACDEFG', 'HJKMNP', 'QRTUVW', 'XY2345'] as $answer) {
+        foreach (['234567', 'ACDEFG', 'HJKMNP', 'QRTUVW', 'XY2345', 'adefhm', 'nrtA29'] as $answer) {
             $this->assertPng($renderer->render($answer));
         }
-        foreach (str_split(TextImageAnswer::ALPHABET) as $character) {
+        foreach (str_split(TextImageAnswer::RENDERABLE_ALPHABET) as $character) {
             $this->assertPng($renderer->render(str_repeat($character, 6)));
         }
     }
@@ -84,7 +84,7 @@ final class GdTextImageRendererTest extends TestCase
                         lightNoisePercent: $noise,
                         maxRotationDegrees: $rotation,
                     ));
-                    foreach (str_split(TextImageAnswer::ALPHABET) as $character) {
+                    foreach (str_split(TextImageAnswer::RENDERABLE_ALPHABET) as $character) {
                         $this->assertPng($renderer->render(str_repeat($character, 6)), (int) (240 * $scale / 100), (int) (80 * $scale / 100));
                     }
                 }
@@ -100,7 +100,7 @@ final class GdTextImageRendererTest extends TestCase
             $scaled = static fn(int $coordinate): int => (int) round($coordinate * $scale / 100);
             $envelopes = [];
             $mostNegativeBearing = 0;
-            foreach (str_split(TextImageAnswer::ALPHABET) as $character) {
+            foreach (str_split(TextImageAnswer::RENDERABLE_ALPHABET) as $character) {
                 // Every smaller public rotation limit selects a subset of these integer angles.
                 foreach (range(-28, 28) as $angle) {
                     $context = "scale=$scale glyph=$character angle=$angle";
@@ -160,7 +160,11 @@ final class GdTextImageRendererTest extends TestCase
     public function testInvalidDirectInput(): void
     {
         $renderer = new GdTextImageRenderer();
-        foreach (['abcdef', '23456', '2345678', ' 23456', '23456 ', "23\t567", 'IIIIII', 'BBBBBB', 'А23456', "\xFF23456", "\0" . '23456'] as $answer) {
+        $invalidAnswers = ['23456', '2345678', ' 23456', '23456 ', "23\t567", 'IIIIII', 'BBBBBB', 'А23456', "\xFF23456", "\0" . '23456'];
+        foreach (str_split('gcsvxzpubqilojkwy') as $character) {
+            $invalidAnswers[] = str_repeat($character, 6);
+        }
+        foreach ($invalidAnswers as $answer) {
             try {
                 $renderer->render($answer);
                 self::fail('Noncanonical answer was accepted.');

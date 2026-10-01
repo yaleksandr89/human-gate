@@ -19,7 +19,10 @@ use Yaleksandr\HumanGate\State\AnswerProof;
 
 final readonly class TextImageStrategy implements ChallengeStrategy
 {
-    public function __construct(private TextImageRenderer $renderer) {}
+    public function __construct(
+        private TextImageRenderer $renderer,
+        private TextImageAnswerOptions $answerOptions = new TextImageAnswerOptions(),
+    ) {}
 
     public function kind(): ChallengeKind
     {
@@ -29,7 +32,7 @@ final readonly class TextImageStrategy implements ChallengeStrategy
     /** @throws RandomException */
     public function prepare(ChallengeId $id, Purpose $purpose): PreparedChallenge
     {
-        $answer = TextImageAnswer::generate();
+        $answer = TextImageAnswer::generate($this->answerOptions->caseSensitive);
         $presentation = $this->renderer->render($answer);
         if ($presentation->mimeType !== 'image/png') {
             throw new InvalidArgumentException('Invalid TextImage presentation.');
@@ -47,7 +50,7 @@ final readonly class TextImageStrategy implements ChallengeStrategy
             throw new InvalidArgumentException('Unexpected challenge kind.');
         }
 
-        $answer = TextImageAnswer::normalize($submittedAnswer);
+        $answer = TextImageAnswer::normalize($submittedAnswer, $this->answerOptions->caseSensitive);
         if ($answer === null) {
             return false;
         }
