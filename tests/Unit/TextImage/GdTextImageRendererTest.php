@@ -101,7 +101,8 @@ final class GdTextImageRendererTest extends TestCase
             $envelopes = [];
             $mostNegativeBearing = 0;
             foreach (str_split(TextImageAnswer::RENDERABLE_ALPHABET) as $character) {
-                // Every smaller public rotation limit selects a subset of these integer angles.
+                // EN: Every smaller public rotation limit selects a subset of these integer angles.
+                // RU: Любой меньший публичный предел поворота выбирает подмножество этих целочисленных углов.
                 foreach (range(-28, 28) as $angle) {
                     $context = "scale=$scale glyph=$character angle=$angle";
                     $bbox = imagettfbbox(28 * $scale / 100, $angle, $font, $character);
@@ -126,8 +127,10 @@ final class GdTextImageRendererTest extends TestCase
                 }
             }
 
-            // This bound covers any first glyph and every later left-bearing correction:
-            // advances are positive, and no correction can exceed the same global threshold.
+            // EN: This bound covers any first glyph and every later left-bearing correction.
+            // RU: Эта граница учитывает любой первый глиф и все последующие коррекции левого выноса.
+            // EN: Advances are positive, and no correction can exceed the same global threshold.
+            // RU: Шаги продвижения положительны, и ни одна коррекция не превышает тот же общий порог.
             $worstInitialX = max($scaled(22), $scaled(6) - $mostNegativeBearing);
             $worstSixthX = $worstInitialX + 5 * $scaled(31);
             foreach ($envelopes as [$maxX, $context]) {
@@ -139,7 +142,8 @@ final class GdTextImageRendererTest extends TestCase
     #[TestDox('Масштабирование всех случайных координат сохраняет непустые диапазоны с различными границами')]
     public function testScaledGeometryRandomRangesDoNotCollapse(): void
     {
-        // Canonical coordinate ranges used for glyph placement, noise bands, lines, arcs and marks.
+        // EN: Canonical coordinate ranges used for glyph placement, noise bands, lines, arcs and marks.
+        // RU: Канонические диапазоны координат для размещения глифов, полос шума, линий, дуг и отметок.
         $ranges = [
             [18, 22], [25, 31], [8, 71], [19, 62], [6, 233], [4, 40],
             [16, 64], [199, 235], [48, 84], [20, 36], [50, 190], [30, 53],
