@@ -23,12 +23,42 @@ use Yaleksandr\HumanGate\TextImage\TextImageStrategy;
 
 require __DIR__ . '/../../../vendor/autoload.php';
 
+final class NativeSessionInfrastructureException extends RuntimeException {}
+
+function writeNativeSessionFile(string $path, string $bytes): void
+{
+    if (file_put_contents($path, $bytes) !== strlen($bytes)) {
+        throw new NativeSessionInfrastructureException('Could not write complete native session test file: ' . $path);
+    }
+}
+
+function awaitNativeSessionMarker(string $path): void
+{
+    $deadline = microtime(true) + 10;
+    while (!is_file($path)) {
+        if (microtime(true) >= $deadline) {
+            throw new NativeSessionInfrastructureException('Native session barrier timed out: ' . $path);
+        }
+        usleep(1000);
+    }
+}
+
 final class NativeSessionWriteInterposer
 {
     public static ?string $directory = null;
     public static ?string $id = null;
     public static ?string $before = null;
     public static bool $hybrid = false;
+    public static ?int $child = null;
+
+    public static function cleanup(): void
+    {
+        if (self::$child !== null) {
+            posix_kill(self::$child, SIGKILL);
+            pcntl_waitpid(self::$child, $status);
+            self::$child = null;
+        }
+    }
 
     /** @return array<string, mixed> */
     public function __serialize(): array
@@ -41,61 +71,65 @@ final class NativeSessionWriteInterposer
         $before = self::$before;
         $hybrid = self::$hybrid;
         self::$directory = null;
+        pcntl_async_signals(true);
+        pcntl_signal(SIGTERM, static function (): never {
+            exit(1);
+        });
         $child = pcntl_fork();
         if ($child === -1) {
-            throw new RuntimeException('Could not fork native session interposer.');
+            throw new NativeSessionInfrastructureException('Could not fork native session interposer.');
         }
         if ($child === 0) {
-            file_put_contents($directory . '/fork-ready', 'ready');
-            $deadline = microtime(true) + 10;
-            while (!is_file($directory . '/fork-release')) {
-                if (microtime(true) >= $deadline) {
-                    posix_kill(posix_getpid(), SIGKILL);
-                }
-                usleep(1000);
-            }
-            $path = $directory . '/sess_' . $id;
-            while (true) {
-                $bytes = file_get_contents($path);
-                $start = is_string($bytes) ? strpos($bytes, '{"schema":2') : false;
-                if ($start !== false && preg_match('/\{"schema":2,.*\]\}/s', substr($bytes, $start), $match) === 1 && $match[0] !== $before) {
-                    try {
-                        $decoded = SessionBucketCodec::decode($match[0]);
-                        break;
-                    } catch (NativeSessionStorageException) {
+            try {
+                writeNativeSessionFile($directory . '/fork-ready', 'ready');
+                awaitNativeSessionMarker($directory . '/fork-release');
+                $deadline = microtime(true) + 10;
+                $path = $directory . '/sess_' . $id;
+                while (true) {
+                    $bytes = file_get_contents($path);
+                    $start = is_string($bytes) ? strpos($bytes, '{"schema":2') : false;
+                    if ($start !== false && preg_match('/\{"schema":2,.*\]\}/s', substr($bytes, $start), $match) === 1 && $match[0] !== $before) {
+                        try {
+                            $decoded = SessionBucketCodec::decode($match[0]);
+                            break;
+                        } catch (NativeSessionStorageException) {
+                        }
                     }
+                    if (microtime(true) >= $deadline) {
+                        throw new NativeSessionInfrastructureException('Native session interposer write timed out.');
+                    }
+                    usleep(1000);
                 }
-                if (microtime(true) >= $deadline) {
-                    posix_kill(posix_getpid(), SIGKILL);
-                }
-                usleep(1000);
-            }
-            if ($hybrid) {
-                $bucket = $decoded['bucket'];
-                $target = $bucket->active(ChallengeId::fromString(str_repeat('a', 64)));
-                if ($target !== null) {
+                if ($hybrid) {
+                    $bucket = $decoded['bucket'];
+                    $target = $bucket->active(ChallengeId::fromString(str_repeat('a', 64)));
+                    if ($target === null) {
+                        throw new NativeSessionInfrastructureException('Missing hybrid session target.');
+                    }
                     $bucket->setActive(new ActiveChallenge($target->id, $target->purpose, $target->kind, $target->issuedAt, $target->expiresAt, $target->proof));
                     $receipts = $decoded['receipts'];
                     $last = array_pop($receipts);
                     if ($last === null) {
-                        posix_kill(posix_getpid(), SIGKILL);
-                        throw new RuntimeException('Missing native session receipt.');
+                        throw new NativeSessionInfrastructureException('Missing native session receipt.');
                     }
                     $receipts[] = ['token' => $last['token'], 'parent' => $last['parent'],
                         'payloadDigest' => hash('sha256', SessionBucketCodec::encodePayload($bucket))];
                     $replacement = SessionBucketCodec::encodeNamespace($bucket, $receipts);
-                    if (strlen($replacement) === strlen($match[0])) {
-                        $rewritten = substr_replace($bytes, $replacement, $start, strlen($match[0]));
-                        file_put_contents($path, $rewritten);
+                    if (strlen($replacement) !== strlen($match[0])) {
+                        throw new NativeSessionInfrastructureException('Hybrid session replacement length differs.');
                     }
+                    $rewritten = substr_replace($bytes, $replacement, $start, strlen($match[0]));
+                    writeNativeSessionFile($path, $rewritten);
                 }
+                writeNativeSessionFile($directory . '/fork-done', 'done');
+            } catch (Throwable $exception) {
+                fwrite(STDERR, 'Native session interposer failed: ' . $exception->getMessage() . "\n");
+            } finally {
+                posix_kill(posix_getpid(), SIGKILL);
             }
-            file_put_contents($directory . '/fork-done', 'done');
-            posix_kill(posix_getpid(), SIGKILL);
         }
-        while (!is_file($directory . '/fork-release')) {
-            usleep(1000);
-        }
+        self::$child = $child;
+        awaitNativeSessionMarker($directory . '/fork-release');
 
         return [];
     }
@@ -103,6 +137,8 @@ final class NativeSessionWriteInterposer
     /** @param array<string, mixed> $data */
     public function __unserialize(array $data): void {}
 }
+
+register_shutdown_function(NativeSessionWriteInterposer::cleanup(...));
 
 $arguments = $_SERVER['argv'] ?? null;
 if (!is_array($arguments) || !isset($arguments[1], $arguments[2], $arguments[3], $arguments[4])
@@ -116,19 +152,21 @@ ini_set('session.serialize_handler', $operation === 'unsupported_serializer' ? '
 ini_set('session.use_strict_mode', in_array($operation, ['init', 'unsupported_serializer'], true) ? '0' : '1');
 session_name('HGTEST');
 session_id($id);
-if (str_starts_with($operation, 'queue_')) {
-    file_put_contents($directory . '/second-ready', 'ready');
-    $operation = substr($operation, 6);
-}
-if (preg_match('/\Aqueue([0-9]+)_(.+)\z/', $operation, $queued) === 1) {
-    file_put_contents($directory . '/queue' . $queued[1] . '-ready', 'ready');
-    $operation = $queued[2];
-}
-
 try {
+    if (str_starts_with($operation, 'queue_')) {
+        writeNativeSessionFile($directory . '/second-ready', 'ready');
+        $operation = substr($operation, 6);
+    }
+    if (preg_match('/\Aqueue([0-9]+)_(.+)\z/', $operation, $queued) === 1) {
+        writeNativeSessionFile($directory . '/queue' . $queued[1] . '-ready', 'ready');
+        $operation = $queued[2];
+    }
+
     if ($operation === 'identity_peer') {
-        unlink($directory . '/sess_' . $id);
-        file_put_contents($directory . '/second-ready', 'ready');
+        if (!unlink($directory . '/sess_' . $id)) {
+            throw new NativeSessionInfrastructureException('Could not remove native session identity file.');
+        }
+        writeNativeSessionFile($directory . '/second-ready', 'ready');
         echo json_encode(['removed' => true], JSON_THROW_ON_ERROR);
         exit;
     }
@@ -140,14 +178,8 @@ try {
         ActiveNativeSessionScope::capture();
     }
     if (str_starts_with($operation, 'wait_')) {
-        file_put_contents($directory . '/first-ready', 'ready');
-        $deadline = microtime(true) + 10;
-        while (!is_file($directory . '/first-release')) {
-            if (microtime(true) >= $deadline) {
-                throw new RuntimeException('Native session barrier timed out.');
-            }
-            usleep(1000);
-        }
+        writeNativeSessionFile($directory . '/first-ready', 'ready');
+        awaitNativeSessionMarker($directory . '/first-release');
         $operation = substr($operation, 5);
     }
     if ($operation === 'init') {
@@ -290,6 +322,9 @@ try {
             }
         }
     }
+} catch (NativeSessionInfrastructureException $exception) {
+    fwrite(STDERR, $exception->getMessage() . "\n");
+    exit(1);
 } catch (Throwable $exception) {
     $result = ['error' => $exception::class];
     if ($exception instanceof NativeSessionStorageException) {
@@ -298,6 +333,17 @@ try {
     $result['strict'] = ini_get('session.use_strict_mode');
     if (session_status() === PHP_SESSION_ACTIVE) {
         session_write_close();
+    }
+}
+
+if (NativeSessionWriteInterposer::$child !== null) {
+    try {
+        awaitNativeSessionMarker($directory . '/fork-done');
+    } catch (NativeSessionInfrastructureException $exception) {
+        fwrite(STDERR, $exception->getMessage() . "\n");
+        exit(1);
+    } finally {
+        NativeSessionWriteInterposer::cleanup();
     }
 }
 
