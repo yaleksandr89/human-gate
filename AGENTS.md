@@ -45,10 +45,11 @@ remote mutation policy: READ_ONLY_FOR_AI
 
 ### До публикации на Packagist
 
-Пока пакет **не опубликован на Packagist**, по owner policy он считается неиспользуемым внешними consumers, если пользователь явно не сообщил обратное.
+Пока пакет **не опубликован на Packagist**, backward compatibility по owner policy **не является обязательным ограничением**, даже если owner использует pre-release package в собственном контролируемом application/сайте для проверки.
 
 В этом состоянии:
 
+- owner-controlled pre-release consumer является validation target, а не compatibility anchor;
 - clean target design имеет приоритет над сохранением незарелизованных API;
 - допустимо менять собственные текущие public/internal contracts, tests и implementation, если это делает итоговый design правильнее;
 - не добавляй legacy aliases;
