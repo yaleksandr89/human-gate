@@ -9,6 +9,9 @@ use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use Yaleksandr\HumanGate\CategorySelection\CategorySelectionCategory;
+use Yaleksandr\HumanGate\CategorySelection\CategorySelectionOptions;
+use Yaleksandr\HumanGate\CategorySelection\CategorySelectionStrategy;
 use Yaleksandr\HumanGate\Challenge\ChallengeId;
 use Yaleksandr\HumanGate\Challenge\ChallengeKind;
 use Yaleksandr\HumanGate\Challenge\Policy;
@@ -21,6 +24,7 @@ use Yaleksandr\HumanGate\Port\ChallengeStore;
 use Yaleksandr\HumanGate\Port\ChallengeStrategy;
 use Yaleksandr\HumanGate\Port\Clock;
 use Yaleksandr\HumanGate\Port\TextImageRenderer;
+use Yaleksandr\HumanGate\Presentation\CategorySelectionPresentation;
 use Yaleksandr\HumanGate\Presentation\ImagePresentation;
 use Yaleksandr\HumanGate\State\ActiveChallenge;
 use Yaleksandr\HumanGate\State\AnswerProof;
@@ -33,6 +37,62 @@ use Yaleksandr\HumanGate\TextImage\TextImageStrategy;
 #[TestDox('Сервис выполняет выдачу и проверку атомарно')]
 final class ChallengeServiceTest extends TestCase
 {
+    #[TestDox('Вторая стратегия использует существующие выдачу, замену, попытки и однократное принятие ответа')]
+    public function testCategorySelectionAlongsideTextImage(): void
+    {
+        $categories = [
+            new CategorySelectionCategory('Фрукты', ['Яблоко', 'Груша', 'Банан', 'Апельсин']),
+            new CategorySelectionCategory('Инструменты', ['Молоток', 'Пила', 'Дрель', 'Рубанок']),
+        ];
+        $renderer = new class implements TextImageRenderer {
+            public function render(string $canonicalAnswer): ImagePresentation
+            {
+                return new ImagePresentation('image/png', 'bytes', 240, 80);
+            }
+        };
+        $store = new InMemoryChallengeStore();
+        $service = new ChallengeService(
+            $store,
+            new Policy(),
+            new FrozenClock(1000),
+            new TextImageStrategy($renderer),
+            new CategorySelectionStrategy($categories, new CategorySelectionOptions()),
+        );
+        $purpose = new Purpose('login');
+        $text = $service->issue($purpose)->challenge;
+        self::assertNotNull($text);
+        self::assertSame(ChallengeKind::TextImage, $text->kind);
+        self::assertInstanceOf(ImagePresentation::class, $text->presentation);
+        $issued = $service->issue($purpose, ChallengeKind::CategorySelection);
+        self::assertSame(LifecycleCode::Issued, $issued->code);
+        self::assertNotNull($issued->challenge);
+        self::assertSame(ChallengeKind::CategorySelection, $issued->challenge->kind);
+        self::assertInstanceOf(CategorySelectionPresentation::class, $issued->challenge->presentation);
+        $oldId = $issued->challenge->id;
+        $replacement = $service->replace($oldId, $purpose, ChallengeKind::CategorySelection);
+        self::assertSame(LifecycleCode::Refreshed, $replacement->code);
+        self::assertSame(VerificationCode::Replaced, $service->verify($oldId, $purpose, ''));
+        self::assertNotNull($replacement->challenge);
+        $challenge = $replacement->challenge;
+        self::assertSame(ChallengeKind::CategorySelection, $challenge->kind);
+        self::assertInstanceOf(CategorySelectionPresentation::class, $challenge->presentation);
+        $presentation = $challenge->presentation;
+        $targetItems = $presentation->category === $categories[0]->label ? $categories[0]->items : $categories[1]->items;
+        $tokens = [];
+        foreach ($presentation->cards as $card) {
+            if (in_array($card->label, $targetItems, true)) {
+                $tokens[] = $card->token;
+            }
+        }
+        self::assertCount(2, $tokens);
+        self::assertSame(VerificationCode::Incorrect, $service->verify($challenge->id, $purpose, 'malformed'));
+        self::assertSame(1, $store->atomic(static fn(ChallengeBucket $bucket): ?int => $bucket->active($challenge->id)?->wrongAttempts));
+        $answer = implode(',', $tokens);
+        self::assertSame(VerificationCode::Accepted, $service->verify($challenge->id, $purpose, $answer));
+        self::assertNull($store->atomic(static fn(ChallengeBucket $bucket): ?ActiveChallenge => $bucket->active($challenge->id)));
+        self::assertSame(VerificationCode::AlreadyConsumed, $service->verify($challenge->id, $purpose, $answer));
+    }
+
     public function testIssueWrongConsumeAndReplay(): void
     {
         $store = new InMemoryChallengeStore();
