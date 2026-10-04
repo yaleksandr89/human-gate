@@ -93,6 +93,74 @@ final class ChallengeServiceTest extends TestCase
         self::assertSame(VerificationCode::AlreadyConsumed, $service->verify($challenge->id, $purpose, $answer));
     }
 
+    #[TestDox('IconSequence использует существующие выдачу, замену, попытки, потребление и защиту от повтора')]
+    public function testIconSequenceLifecycle(): void
+    {
+        $script = <<<'PHP'
+            namespace Yaleksandr\HumanGate\IconSequence;
+            function random_int(int $min, int $max): int { return $min; }
+            function random_bytes(int $length): string {
+                static $calls = 0;
+                return str_repeat(chr(++$calls), $length);
+            }
+            namespace Yaleksandr\HumanGate\Internal\IconSequence;
+            function random_int(int $min, int $max): int {
+                if ($GLOBALS['failRender'] ?? false) { throw new \Random\RandomException('source'); }
+                return $min;
+            }
+            namespace Yaleksandr\HumanGate\Tests\Unit;
+            PHP;
+        $script .= 'require ' . var_export(dirname(__DIR__, 2) . '/vendor/autoload.php', true) . '; '
+            . <<<'PHP'
+                $store = new \Yaleksandr\HumanGate\Tests\Support\InMemoryChallengeStore();
+                $service = new \Yaleksandr\HumanGate\ChallengeService(
+                    $store, new \Yaleksandr\HumanGate\Challenge\Policy(),
+                    new \Yaleksandr\HumanGate\Tests\Support\FrozenClock(1000),
+                    new \Yaleksandr\HumanGate\IconSequence\IconSequenceStrategy(),
+                );
+                $purpose = new \Yaleksandr\HumanGate\Challenge\Purpose('login');
+                $kind = \Yaleksandr\HumanGate\Challenge\ChallengeKind::IconSequence;
+                $assert = \PHPUnit\Framework\TestCase::class;
+                $issued = $service->issue($purpose, $kind);
+                $assert::assertSame(\Yaleksandr\HumanGate\State\LifecycleCode::Issued, $issued->code);
+                $assert::assertNotNull($issued->challenge);
+                $assert::assertSame($kind, $issued->challenge->kind);
+                $assert::assertInstanceOf(\Yaleksandr\HumanGate\Presentation\IconSequencePresentation::class, $issued->challenge->presentation);
+                $assert::assertSame(['id', 'kind', 'expiresAt', 'presentation'], array_keys(get_object_vars($issued->challenge)));
+                $GLOBALS['failRender'] = true;
+                try {
+                    $service->replace($issued->challenge->id, $purpose, $kind);
+                    throw new \RuntimeException('Preparation failure swallowed.');
+                } catch (\Random\RandomException) {
+                    $assert::assertSame(1, $store->atomic(fn($bucket) => $bucket->activeCount()));
+                    $assert::assertNotNull($store->atomic(fn($bucket) => $bucket->active($issued->challenge->id)));
+                }
+                $GLOBALS['failRender'] = false;
+                $replacement = $service->replace($issued->challenge->id, $purpose, $kind);
+                $assert::assertSame(\Yaleksandr\HumanGate\State\LifecycleCode::Refreshed, $replacement->code);
+                $assert::assertNotNull($replacement->challenge);
+                $assert::assertSame(\Yaleksandr\HumanGate\Challenge\VerificationCode::Replaced, $service->verify($issued->challenge->id, $purpose, ''));
+                $id = $replacement->challenge->id;
+                $answer = implode(',', array_map(fn($n) => bin2hex(str_repeat(chr($n), 16)), range(17, 20)));
+                $assert::assertSame(\Yaleksandr\HumanGate\Challenge\VerificationCode::PurposeMismatch, $service->verify($id, new \Yaleksandr\HumanGate\Challenge\Purpose('signup'), $answer));
+                $assert::assertSame(\Yaleksandr\HumanGate\Challenge\VerificationCode::Incorrect, $service->verify($id, $purpose, 'malformed'));
+                $assert::assertSame(1, $store->atomic(fn($bucket) => $bucket->active($id)?->wrongAttempts));
+                $assert::assertSame(\Yaleksandr\HumanGate\Challenge\VerificationCode::Accepted, $service->verify($id, $purpose, $answer));
+                $assert::assertNull($store->atomic(fn($bucket) => $bucket->active($id)));
+                $assert::assertSame(\Yaleksandr\HumanGate\Challenge\VerificationCode::AlreadyConsumed, $service->verify($id, $purpose, $answer));
+                echo 'ok';
+                PHP;
+        $process = proc_open([PHP_BINARY, '-r', $script], [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+        self::assertIsResource($process);
+        fclose($pipes[0]);
+        $output = stream_get_contents($pipes[1]);
+        $errors = stream_get_contents($pipes[2]);
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+        self::assertSame(0, proc_close($process), (string) $errors);
+        self::assertSame('ok', $output);
+    }
+
     public function testIssueWrongConsumeAndReplay(): void
     {
         $store = new InMemoryChallengeStore();
