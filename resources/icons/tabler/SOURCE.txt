@@ -1,0 +1,140 @@
+{
+  "upstream": "https://github.com/tabler/tabler-icons",
+  "tag": "v3.48.0",
+  "release": "https://github.com/tabler/tabler-icons/releases/tag/v3.48.0",
+  "license": "MIT",
+  "license_sha256": "b740a1d46122672da62833e97f7e7c8a13fa85cbc7445b584b297cc00dde93db",
+  "tool": "Version: ImageMagick 6.9.12-98 Q16 x86_64 18038 https://legacy.imagemagick.org\nCopyright: (C) 1999 ImageMagick Studio LLC\nLicense: https://imagemagick.org/script/license.php\nFeatures: Cipher DPC Modules OpenMP(4.5) \nDelegates (built-in): bzlib djvu fftw fontconfig freetype heic jbig jng jp2 jpeg lcms lqr ltdl lzma openexr pangocairo png raw tiff webp wmf x xml zlib",
+  "preprocess": "Replace only stroke=\"currentColor\" with stroke=\"#273446\" in a temporary SVG; retain the official original for source SHA-256.",
+  "command": "convert -background none -density 288 MSVG:<temporary-svg> -resize 96x96 -strip PNG32:<name>.png",
+  "assets": [
+    {
+      "source": "icons/outline/anchor.svg",
+      "source_sha256": "89f1a08da3380378201e39989e7a77e51d037f57d89626c3ee524af28b322cf6",
+      "png": "anchor.png",
+      "png_sha256": "e6489b205947f402c2c90b56e61b0b36099aafcb351e03cc0042e704657b151b",
+      "width": 96,
+      "height": 96
+    },
+    {
+      "source": "icons/outline/apple.svg",
+      "source_sha256": "dfa1708a8e3d7dac024158560fa3fe155e955c913bfdf726d11500ff00bf3246",
+      "png": "apple.png",
+      "png_sha256": "038118e3cff173178ab72ffdd56a3eb35b5edcf06dfefba74c329251e35d0c3b",
+      "width": 96,
+      "height": 96
+    },
+    {
+      "source": "icons/outline/bell.svg",
+      "source_sha256": "470d39082cfbf44f0b4b0588d8f9f1fd2c211b09dc60d0304e91a24a3aeef32e",
+      "png": "bell.png",
+      "png_sha256": "ded1b044810984a70fb43378bc2f8f0e1af874d8e95915ca752791c090770aad",
+      "width": 96,
+      "height": 96
+    },
+    {
+      "source": "icons/outline/camera.svg",
+      "source_sha256": "24c3560560e6177528dada3805efab129c5667ef97b0ea342a21d0a34032baa8",
+      "png": "camera.png",
+      "png_sha256": "c405e97cfa999792c8a05ccb7d76c135245515e2a1ca829f1e719ec4a6cdf27c",
+      "width": 96,
+      "height": 96
+    },
+    {
+      "source": "icons/outline/car.svg",
+      "source_sha256": "c95af3091f703f3badf544aa54def72eb60238780932451669fa91d566beb186",
+      "png": "car.png",
+      "png_sha256": "6b50e23c4ea94ed659c4a3e2fbe0d01d8a7cd2003aa110359c6ae41f33620929",
+      "width": 96,
+      "height": 96
+    },
+    {
+      "source": "icons/outline/fish.svg",
+      "source_sha256": "389afae098f68c0436b82bdcfcb4256b750824989f156f1e0c428071d2775f37",
+      "png": "fish.png",
+      "png_sha256": "5224d39aac71f913f88a478e82b0890632e792f4995ea36e115219ee24545a27",
+      "width": 96,
+      "height": 96
+    },
+    {
+      "source": "icons/outline/gift.svg",
+      "source_sha256": "5e0c4ef9d3e8437c2ea230009ebe78085e101c490eb456c8b38d141411078864",
+      "png": "gift.png",
+      "png_sha256": "427a00640526184e7ada9ce906d32620349f984265132b69dd67ff8eb2b6e553",
+      "width": 96,
+      "height": 96
+    },
+    {
+      "source": "icons/outline/home.svg",
+      "source_sha256": "6edebd7f9ac62a73e882f1bad7a4816fd4799e29bab2b27cf626b0f1708a9a20",
+      "png": "home.png",
+      "png_sha256": "10392a2bbc98bf7fc94f4cc5c43b75457b0b985bc9fa1002af89f964bbacba83",
+      "width": 96,
+      "height": 96
+    },
+    {
+      "source": "icons/outline/key.svg",
+      "source_sha256": "b36c19b63957f09c2925dbb9246a7ac652205390f2cc3753760a66f8e2d38088",
+      "png": "key.png",
+      "png_sha256": "8cd31f497cfe63d36a27e3b54ac7391d2664906a0c37cbcb1d1e057fb6056e36",
+      "width": 96,
+      "height": 96
+    },
+    {
+      "source": "icons/outline/moon.svg",
+      "source_sha256": "921d27bb214f2ec714ff4deeffa8a5efc4bb989e367df47f9f58351d2effee00",
+      "png": "moon.png",
+      "png_sha256": "c69ee6a009f3e2e71a6c6225512dfacdd575b019b834daa95d79f36a38fddbd6",
+      "width": 96,
+      "height": 96
+    },
+    {
+      "source": "icons/outline/plane.svg",
+      "source_sha256": "983fa0719e3b04c57b7e96ca72a55ec0cce44f683a9800ad71fe7778cc0ebec5",
+      "png": "plane.png",
+      "png_sha256": "95e6b51090d84842017bcdebbbd73fab2b98706701612b6bb15f5f7243143e19",
+      "width": 96,
+      "height": 96
+    },
+    {
+      "source": "icons/outline/rocket.svg",
+      "source_sha256": "bd4cd3e27278d3c5a84b9480437d9c8bb10907540d01824ae2b0da6a16a0e84b",
+      "png": "rocket.png",
+      "png_sha256": "6e9f66893585440796f312395088e282e68570b56378fbd7a2f311fccdd12ab2",
+      "width": 96,
+      "height": 96
+    },
+    {
+      "source": "icons/outline/star.svg",
+      "source_sha256": "33727ef0a469dbe7147e5cfe5a875a28b97809b0eac99a2e6886679369d43934",
+      "png": "star.png",
+      "png_sha256": "46193a566305420d7b44a84b96445b8c74ad5096fc2bc3beef10be19b11b1b65",
+      "width": 96,
+      "height": 96
+    },
+    {
+      "source": "icons/outline/sun.svg",
+      "source_sha256": "6d4dc625a54dea6c696e8320c35fcf7e235dc039f512ef2c30af9b0663a7ab3f",
+      "png": "sun.png",
+      "png_sha256": "627c2205c63d7607ff79ad17d6d5418fe5d323cc6f5b8761fa8515c81a078816",
+      "width": 96,
+      "height": 96
+    },
+    {
+      "source": "icons/outline/tree.svg",
+      "source_sha256": "1ebddabee729822b183d4ce803ec7510e714bb81c148d2befcbf85bec0da26d7",
+      "png": "tree.png",
+      "png_sha256": "d297ee7240d87411bcbf8846bd454727a98c055879fba5abffbf33d6fef74cb5",
+      "width": 96,
+      "height": 96
+    },
+    {
+      "source": "icons/outline/umbrella.svg",
+      "source_sha256": "971f52c82b1ee2b52f650ee77770151001cc2c867a0ac22db94487e0477a6cea",
+      "png": "umbrella.png",
+      "png_sha256": "8b45cac8613c79deb8459928fbefae654958f7c3b20f2718d66e0c73e0e8ed73",
+      "width": 96,
+      "height": 96
+    }
+  ]
+}
