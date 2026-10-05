@@ -11,7 +11,6 @@ use Yaleksandr\HumanGate\Challenge\ChallengeId;
 use Yaleksandr\HumanGate\Challenge\ChallengeKind;
 use Yaleksandr\HumanGate\Challenge\PreparedChallenge;
 use Yaleksandr\HumanGate\Challenge\Purpose;
-use Yaleksandr\HumanGate\IconSequence\IconSequenceLanguage;
 use Yaleksandr\HumanGate\IconSequence\IconSequenceOptions;
 use Yaleksandr\HumanGate\IconSequence\IconSequenceStrategy;
 use Yaleksandr\HumanGate\Internal\AnswerDigest;
@@ -35,26 +34,31 @@ final class IconSequenceStrategyTest extends TestCase
             self::assertCount($count, $presentation->choices);
             self::assertEqualsCanonicalizing(['target', 'requiredSelections', 'choices'], array_keys(get_object_vars($presentation)));
             $allTokens = [];
-            $labels = [];
             $images = [];
             foreach ($presentation->choices as $choice) {
-                self::assertSame(['token', 'label', 'image'], array_keys(get_object_vars($choice)));
+                self::assertSame(['token', 'image'], array_keys(get_object_vars($choice)));
                 self::assertMatchesRegularExpression('/\A[0-9a-f]{32}\z/', $choice->token);
                 $allTokens[] = $choice->token;
-                $labels[] = $choice->label;
                 $images[] = hash('sha256', $choice->image->bytes);
                 self::assertSame('image/png', $choice->image->mimeType);
                 self::assertSame(96, $choice->image->width);
                 self::assertSame(96, $choice->image->height);
             }
             self::assertCount($count, array_unique($allTokens));
-            self::assertCount($count, array_unique($labels));
             self::assertCount($count, array_unique($images));
-            $expectedLabels = array_map(static fn(string $name): string => IconSequenceCatalog::label($name, IconSequenceLanguage::Russian), array_slice(IconSequenceCatalog::names(), 0, $count));
-            self::assertEqualsCanonicalizing($expectedLabels, $labels);
-            $targetLabels = array_slice($expectedLabels, 0, $length);
-            self::assertCount($length, array_intersect($targetLabels, $labels));
-            self::assertGreaterThanOrEqual(2, count(array_diff($labels, $targetLabels)));
+            $expectedImages = array_map(
+                static fn(string $name): string => hash('sha256', IconSequenceCatalog::image($name)->bytes),
+                array_slice(IconSequenceCatalog::names(), 0, $count),
+            );
+            self::assertEqualsCanonicalizing($expectedImages, $images);
+            $targetImages = array_slice($expectedImages, 0, $length);
+            self::assertCount($length, array_intersect($targetImages, $images));
+            self::assertGreaterThanOrEqual(2, count(array_diff($images, $targetImages)));
+            foreach ($presentation->choices as $choice) {
+                $index = array_search(hash('sha256', $choice->image->bytes), $expectedImages, true);
+                self::assertIsInt($index);
+                self::assertSame(bin2hex(str_repeat(chr($index + 1), 16)), $choice->token);
+            }
             $tokens = array_map(static fn(int $index): string => bin2hex(str_repeat(chr($index), 16)), range(1, $length));
             $answer = implode(',', $tokens);
             self::assertNotSame($tokens, array_slice($allTokens, 0, $length));
@@ -94,13 +98,13 @@ final class IconSequenceStrategyTest extends TestCase
         }
     }
 
-    public function testProductionRandomnessAndEnglishLabels(): void
+    public function testProductionRandomness(): void
     {
-        $prepared = new IconSequenceStrategy(new IconSequenceOptions(language: IconSequenceLanguage::English))->prepare(ChallengeId::generate(), new Purpose('login'));
+        $prepared = new IconSequenceStrategy()->prepare(ChallengeId::generate(), new Purpose('login'));
         self::assertInstanceOf(IconSequencePresentation::class, $prepared->presentation);
-        $english = array_map(static fn(string $name): string => IconSequenceCatalog::label($name, IconSequenceLanguage::English), IconSequenceCatalog::names());
         foreach ($prepared->presentation->choices as $choice) {
-            self::assertContains($choice->label, $english);
+            self::assertSame(['token', 'image'], array_keys(get_object_vars($choice)));
+            self::assertMatchesRegularExpression('/\A[0-9a-f]{32}\z/', $choice->token);
         }
         self::assertCount(8, array_unique(array_map(static fn($choice): string => $choice->token, $prepared->presentation->choices)));
     }

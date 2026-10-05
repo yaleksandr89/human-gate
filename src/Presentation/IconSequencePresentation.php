@@ -12,8 +12,8 @@ final readonly class IconSequencePresentation implements Presentation
     public array $choices;
 
     /**
-     * EN: Validates a list of unique choices without exposing target membership or order as text.
-     * RU: Проверяет список уникальных вариантов, не раскрывая текстом состав или порядок целевой последовательности.
+     * EN: Validates unique choice tokens and images without exposing target membership or order.
+     * RU: Проверяет уникальность токенов и изображений вариантов, не раскрывая состав или порядок целевой последовательности.
      *
      * @param array<array-key, mixed> $choices
      */
@@ -30,7 +30,6 @@ final readonly class IconSequencePresentation implements Presentation
             throw new InvalidArgumentException('Invalid icon sequence presentation.');
         }
         $tokens = [];
-        $labels = [];
         $images = [];
         $validated = [];
         foreach ($choices as $choice) {
@@ -39,13 +38,11 @@ final readonly class IconSequencePresentation implements Presentation
             }
             if (
                 in_array($choice->token, $tokens, true)
-                || in_array($choice->label, $labels, true)
                 || in_array($choice->image->bytes, $images, true)
             ) {
                 throw new InvalidArgumentException('Duplicate icon sequence choice.');
             }
             $tokens[] = $choice->token;
-            $labels[] = $choice->label;
             $images[] = $choice->image->bytes;
             $validated[] = $choice;
         }
