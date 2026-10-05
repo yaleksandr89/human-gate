@@ -7,7 +7,6 @@ namespace Yaleksandr\HumanGate\Tests\Unit\IconSequence;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
-use Yaleksandr\HumanGate\IconSequence\IconSequenceLanguage;
 use Yaleksandr\HumanGate\IconSequence\IconSequenceOptions;
 
 #[TestDox('Параметры последовательности ограничивают длину и гарантируют два отвлекающих варианта')]
@@ -18,13 +17,12 @@ final class IconSequenceOptionsTest extends TestCase
         $options = new IconSequenceOptions();
         self::assertSame(4, $options->sequenceLength);
         self::assertSame(8, $options->choiceCount);
-        self::assertSame(IconSequenceLanguage::Russian, $options->language);
+        self::assertSame(['sequenceLength', 'choiceCount'], array_keys(get_object_vars($options)));
         foreach (range(3, 6) as $length) {
             foreach ([$length + 2, 12] as $count) {
-                $options = new IconSequenceOptions($length, $count, IconSequenceLanguage::English);
+                $options = new IconSequenceOptions($length, $count);
                 self::assertSame($length, $options->sequenceLength);
                 self::assertSame($count, $options->choiceCount);
-                self::assertSame(IconSequenceLanguage::English, $options->language);
             }
         }
     }

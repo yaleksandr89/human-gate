@@ -47,7 +47,7 @@ final readonly class IconSequenceStrategy implements ChallengeStrategy
             $token = self::uniqueToken($tokens);
             $tokens[] = $token;
             $image = IconSequenceCatalog::image($name);
-            $choices[] = new IconSequenceChoice($token, IconSequenceCatalog::label($name, $this->options->language), $image);
+            $choices[] = new IconSequenceChoice($token, $image);
             if ($index < $this->options->sequenceLength) {
                 $targetTokens[] = $token;
                 $sequence[] = $image;

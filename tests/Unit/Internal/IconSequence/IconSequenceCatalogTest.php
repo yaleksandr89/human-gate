@@ -7,14 +7,12 @@ namespace Yaleksandr\HumanGate\Tests\Unit\Internal\IconSequence;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
-use Yaleksandr\HumanGate\IconSequence\IconSequenceLanguage;
 use Yaleksandr\HumanGate\Internal\IconSequence\IconSequenceCatalog;
-use Yaleksandr\HumanGate\Presentation\IconSequenceChoice;
 
-#[TestDox('Каталог содержит ровно 16 лицензированных PNG с уникальными русскими и английскими подписями')]
+#[TestDox('Каталог содержит ровно 16 лицензированных PNG с уникальными изображениями')]
 final class IconSequenceCatalogTest extends TestCase
 {
-    public function testCatalogAssetsLabelsAndProvenance(): void
+    public function testCatalogAssetsAndProvenance(): void
     {
         $names = ['anchor', 'apple', 'bell', 'camera', 'car', 'fish', 'gift', 'home', 'key', 'moon', 'plane', 'rocket', 'star', 'sun', 'tree', 'umbrella'];
         self::assertSame($names, IconSequenceCatalog::names());
@@ -65,32 +63,16 @@ final class IconSequenceCatalogTest extends TestCase
             self::assertIsString($record['source_sha256']);
             self::assertMatchesRegularExpression('/\A[0-9a-f]{64}\z/', $record['source_sha256']);
         }
-        foreach (IconSequenceLanguage::cases() as $language) {
-            $labels = [];
-            foreach ($names as $name) {
-                $label = IconSequenceCatalog::label($name, $language);
-                self::assertNotContains($label, $labels);
-                self::assertSame(0, preg_match('/[<>]/', $label));
-                $labels[] = $label;
-                self::assertSame($label, new IconSequenceChoice(str_repeat('a', 32), $label, IconSequenceCatalog::image($name))->label);
-            }
-        }
     }
 
     public function testUnknownNamesCannotBecomePaths(): void
     {
         foreach (['../anchor', '/tmp/anchor', 'anchor.png', 'ANCHOR', ''] as $name) {
-            foreach ([true, false] as $image) {
-                try {
-                    if ($image) {
-                        IconSequenceCatalog::image($name);
-                    } else {
-                        IconSequenceCatalog::label($name, IconSequenceLanguage::Russian);
-                    }
-                    self::fail('Unknown name accepted.');
-                } catch (InvalidArgumentException $exception) {
-                    self::assertSame('Unknown package icon.', $exception->getMessage());
-                }
+            try {
+                IconSequenceCatalog::image($name);
+                self::fail('Unknown name accepted.');
+            } catch (InvalidArgumentException $exception) {
+                self::assertSame('Unknown package icon.', $exception->getMessage());
             }
         }
     }
