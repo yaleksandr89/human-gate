@@ -9,12 +9,45 @@ use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
 use Yaleksandr\HumanGate\Internal\IconSequence\IconSequenceCatalog;
 
-#[TestDox('Каталог содержит ровно 16 лицензированных PNG с уникальными изображениями')]
+#[TestDox('Каталог содержит ровно 32 лицензированных PNG с уникальными изображениями')]
 final class IconSequenceCatalogTest extends TestCase
 {
     public function testCatalogAssetsAndProvenance(): void
     {
-        $names = ['anchor', 'apple', 'bell', 'camera', 'car', 'fish', 'gift', 'home', 'key', 'moon', 'plane', 'rocket', 'star', 'sun', 'tree', 'umbrella'];
+        $names = [
+            'anchor',
+            'apple',
+            'ball-football',
+            'bell',
+            'bike',
+            'bulb',
+            'camera',
+            'car',
+            'clock',
+            'coffee',
+            'crown',
+            'diamond',
+            'eyeglass',
+            'fish',
+            'gift',
+            'heart',
+            'home',
+            'key',
+            'leaf',
+            'moon',
+            'music',
+            'paw',
+            'phone',
+            'plane',
+            'rocket',
+            'scissors',
+            'ship',
+            'snowflake',
+            'star',
+            'sun',
+            'tree',
+            'umbrella',
+        ];
         self::assertSame($names, IconSequenceCatalog::names());
         $directory = dirname(__DIR__, 4) . '/resources/icons/tabler/';
         $source = file_get_contents($directory . 'SOURCE.txt');
@@ -34,11 +67,13 @@ final class IconSequenceCatalogTest extends TestCase
         self::assertIsString($metadata['command']);
         self::assertStringContainsString('MSVG:', $metadata['command']);
         self::assertIsArray($metadata['assets']);
-        self::assertCount(16, $metadata['assets']);
+        self::assertCount(32, $metadata['assets']);
         $hashes = [];
         foreach ($names as $index => $name) {
             $image = IconSequenceCatalog::image($name);
+            self::assertTrue(is_readable($directory . $name . '.png'));
             $bytes = file_get_contents($directory . $name . '.png');
+            self::assertIsString($bytes);
             self::assertSame($bytes, $image->bytes);
             self::assertLessThanOrEqual(131072, strlen($image->bytes));
             $info = getimagesizefromstring($image->bytes);
@@ -49,7 +84,9 @@ final class IconSequenceCatalogTest extends TestCase
             self::assertSame(96, $image->height);
             $decoded = imagecreatefromstring($image->bytes);
             self::assertNotFalse($decoded);
-            self::assertSame(127, (imagecolorat($decoded, 0, 0) >> 24) & 127);
+            foreach ([[0, 0], [95, 0], [0, 95], [95, 95]] as [$x, $y]) {
+                self::assertSame(127, (imagecolorat($decoded, $x, $y) >> 24) & 127);
+            }
             $hash = hash('sha256', $image->bytes);
             self::assertNotContains($hash, $hashes);
             $hashes[] = $hash;

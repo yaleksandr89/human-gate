@@ -8,12 +8,16 @@ use GdImage;
 use InvalidArgumentException;
 use Random\RandomException;
 use Yaleksandr\HumanGate\Exception\RenderingException;
+use Yaleksandr\HumanGate\IconSequence\IconSequenceBlur;
+use Yaleksandr\HumanGate\IconSequence\IconSequenceRenderOptions;
 use Yaleksandr\HumanGate\Presentation\ImagePresentation;
 
 final class IconSequenceRenderer
 {
     private const int MAX_PNG_BYTES = 131_072;
     private const string PNG_SIGNATURE = "\x89PNG\r\n\x1a\n";
+
+    public function __construct(private readonly IconSequenceRenderOptions $options = new IconSequenceRenderOptions()) {}
 
     /**
      * EN: Accepts only a list of three to six distinct package icon images.
@@ -50,25 +54,40 @@ final class IconSequenceRenderer
                 throw new InvalidArgumentException('Duplicate sequence image.');
             }
             $seen[] = $presentation->bytes;
-            $size = random_int(76, 84);
-            $scaled = imagescale($source, $size, $size, IMG_BICUBIC_FIXED);
+            $size = random_int($this->options->minIconSize, $this->options->maxIconSize);
+            $scaled = $size === 96 ? $source : imagescale($source, $size, $size, IMG_BICUBIC_FIXED);
             if (!$scaled instanceof GdImage) {
                 throw new RenderingException('Icon scaling failed.');
             }
-            $transparent = imagecolorallocatealpha($scaled, 0, 0, 0, 127);
-            if ($transparent === false) {
-                throw new RenderingException('Icon transparency allocation failed.');
-            }
-            $rotated = imagerotate($scaled, random_int(-7, 7), $transparent);
-            if (!$rotated instanceof GdImage) {
-                throw new RenderingException('Icon rotation failed.');
+            $rotated = $scaled;
+            if ($this->options->maxRotationDegrees > 0) {
+                $transparent = imagecolorallocatealpha($scaled, 0, 0, 0, 127);
+                if ($transparent === false) {
+                    throw new RenderingException('Icon transparency allocation failed.');
+                }
+                $rotated = imagerotate(
+                    $scaled,
+                    random_int(-$this->options->maxRotationDegrees, $this->options->maxRotationDegrees),
+                    $transparent,
+                );
+                if (!$rotated instanceof GdImage) {
+                    throw new RenderingException('Icon rotation failed.');
+                }
             }
             $iconWidth = imagesx($rotated);
             $iconHeight = imagesy($rotated);
+            if ($iconHeight > $height) {
+                throw new RenderingException('Rotated icon exceeds sequence target height.');
+            }
             $x = 12 + $index * 112 + intdiv(112 - $iconWidth, 2);
-            $y = intdiv($height - $iconHeight, 2) + random_int(-4, 4);
+            $centerY = intdiv($height - $iconHeight, 2);
+            $jitter = min(4, $centerY);
+            $y = $centerY + random_int(-$jitter, $jitter);
             imagecopy($canvas, $rotated, $x, $y, 0, 0, $iconWidth, $iconHeight);
         }
+
+        $this->blur($canvas);
+        $this->drawNoise($canvas, $width, $height);
 
         $bufferLevel = ob_get_level();
         if (!ob_start()) {
@@ -120,6 +139,58 @@ final class IconSequenceRenderer
         return $decoded;
     }
 
+    private function blur(GdImage $canvas): void
+    {
+        $passes = match ($this->options->blur) {
+            IconSequenceBlur::None => 0,
+            IconSequenceBlur::Light => 1,
+            IconSequenceBlur::Standard => 3,
+            IconSequenceBlur::Strong => 7,
+        };
+        $gaussian = [
+            [1.0, 2.0, 1.0],
+            [2.0, 4.0, 2.0],
+            [1.0, 2.0, 1.0],
+        ];
+        for ($pass = 0; $pass < $passes; ++$pass) {
+            if (!imageconvolution($canvas, $gaussian, 16.0, 0.0)) {
+                throw new RenderingException('Sequence blur failed.');
+            }
+        }
+    }
+
+    private function drawNoise(GdImage $canvas, int $width, int $height): void
+    {
+        if ($this->options->noisePercent === 0) {
+            return;
+        }
+        foreach ([[240, 221], [120, 185]] as [$baseCount, $shade]) {
+            $color = imagecolorallocate($canvas, $shade, $shade, $shade);
+            if ($color === false) {
+                throw new RenderingException('Sequence noise color allocation failed.');
+            }
+            $count = (int) round($baseCount * $width / 472 * $this->options->noisePercent / 100);
+            for ($dot = 0; $dot < $count; ++$dot) {
+                imagesetpixel($canvas, random_int(0, $width - 1), random_int(0, $height - 1), $color);
+            }
+        }
+        $lineColor = imagecolorallocate($canvas, 210, 210, 210);
+        if ($lineColor === false) {
+            throw new RenderingException('Sequence line color allocation failed.');
+        }
+        $lines = (int) round(5 * $this->options->noisePercent / 100);
+        for ($line = 0; $line < $lines; ++$line) {
+            imageline(
+                $canvas,
+                random_int(0, $width - 1),
+                random_int(0, $height - 1),
+                random_int(0, $width - 1),
+                random_int(0, $height - 1),
+                $lineColor,
+            );
+        }
+    }
+
     private static function requireGd(): void
     {
         foreach ([
@@ -130,6 +201,9 @@ final class IconSequenceRenderer
             'imagescale',
             'imagerotate',
             'imagecopy',
+            'imageconvolution',
+            'imagesetpixel',
+            'imageline',
             'imagepng',
             'imagecreatefromstring',
             'getimagesizefromstring',

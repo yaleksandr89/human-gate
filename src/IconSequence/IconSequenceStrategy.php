@@ -24,7 +24,10 @@ final readonly class IconSequenceStrategy implements ChallengeStrategy
 {
     private const int TOKEN_ATTEMPTS = 4;
 
-    public function __construct(private IconSequenceOptions $options = new IconSequenceOptions()) {}
+    public function __construct(
+        private IconSequenceOptions $options = new IconSequenceOptions(),
+        private IconSequenceRenderOptions $renderOptions = new IconSequenceRenderOptions(),
+    ) {}
 
     public function kind(): ChallengeKind
     {
@@ -58,7 +61,7 @@ final readonly class IconSequenceStrategy implements ChallengeStrategy
             [$choices[$index], $choices[$other]] = [$choices[$other], $choices[$index]];
         }
         $answer = IconSequenceAnswer::canonicalize($targetTokens);
-        $target = new IconSequenceRenderer()->render($sequence);
+        $target = new IconSequenceRenderer($this->renderOptions)->render($sequence);
 
         return new PreparedChallenge(
             new AnswerProof(1, AnswerDigest::forAnswer($id, $purpose, ChallengeKind::IconSequence, $answer)),

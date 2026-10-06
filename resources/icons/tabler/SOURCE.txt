@@ -25,10 +25,34 @@
       "height": 96
     },
     {
+      "source": "icons/outline/ball-football.svg",
+      "source_sha256": "3741b9506fbebfcbc8b2e4fed902ead9fdb91358ddaff5f7bb0e847170c85ef3",
+      "png": "ball-football.png",
+      "png_sha256": "561906608cc691dae42f4f072fc5d7a4471a96c9a7f68f6280bf13fa5c495e83",
+      "width": 96,
+      "height": 96
+    },
+    {
       "source": "icons/outline/bell.svg",
       "source_sha256": "470d39082cfbf44f0b4b0588d8f9f1fd2c211b09dc60d0304e91a24a3aeef32e",
       "png": "bell.png",
       "png_sha256": "ded1b044810984a70fb43378bc2f8f0e1af874d8e95915ca752791c090770aad",
+      "width": 96,
+      "height": 96
+    },
+    {
+      "source": "icons/outline/bike.svg",
+      "source_sha256": "dcfc30feb6fd377d489cdd3c2c50f5fbb55ac4e36b36c49463314299504c74a5",
+      "png": "bike.png",
+      "png_sha256": "c1ac829042702fc4106e1054e7e23f9d21f68103a83b7c0506fac6db638303e9",
+      "width": 96,
+      "height": 96
+    },
+    {
+      "source": "icons/outline/bulb.svg",
+      "source_sha256": "3617f3cd3f835b03b9d8d4feeaa180fa3d436a01de8e109ced052e419f9fa7e0",
+      "png": "bulb.png",
+      "png_sha256": "61acd22eb1ae6a7e316d170422005c7442aa3bf827c994784b7fff796ff7ae0f",
       "width": 96,
       "height": 96
     },
@@ -49,6 +73,46 @@
       "height": 96
     },
     {
+      "source": "icons/outline/clock.svg",
+      "source_sha256": "bb582eb2c9d6709d285623bea586e1f532872a9db3d2391308360636e93d199d",
+      "png": "clock.png",
+      "png_sha256": "7eea566d3e3c15550bec4a7e32797ed20b3bd00d4c88f1adf0a33c37076fe6b4",
+      "width": 96,
+      "height": 96
+    },
+    {
+      "source": "icons/outline/coffee.svg",
+      "source_sha256": "c461122562274f6f46453a0c9d000a0429004cee1879c02c7f21205cda24be21",
+      "png": "coffee.png",
+      "png_sha256": "486747c7d9b35b3a507834d868c10e2b93c82d534e3032cb45f89c40c0051b30",
+      "width": 96,
+      "height": 96
+    },
+    {
+      "source": "icons/outline/crown.svg",
+      "source_sha256": "45ff6c563e30e0a31665523ffbfc92331ad7437cc3bb01c27c511a5fc038957c",
+      "png": "crown.png",
+      "png_sha256": "b4b64c66c16d13d95b3ad750949ec87ddfeddcfd5612770cdccf55c3b2e86dc5",
+      "width": 96,
+      "height": 96
+    },
+    {
+      "source": "icons/outline/diamond.svg",
+      "source_sha256": "8bcae54bc07d758ad6295de1afa591e27f392169932c628a68b36a770763c9dd",
+      "png": "diamond.png",
+      "png_sha256": "fc4c9f7d79f759aba4a28035e5e61f9c71964cc8ab37daf8827607d1229fa4c4",
+      "width": 96,
+      "height": 96
+    },
+    {
+      "source": "icons/outline/eyeglass.svg",
+      "source_sha256": "5061791515b2cb110d0efa1ca86a65bd7b9e231422d527095a9fdcc1a559dabe",
+      "png": "eyeglass.png",
+      "png_sha256": "097bd6e906e69f85d016dc8392b7f7ca02acc0b77b1ceea5d5a5d1b4178007ae",
+      "width": 96,
+      "height": 96
+    },
+    {
       "source": "icons/outline/fish.svg",
       "source_sha256": "389afae098f68c0436b82bdcfcb4256b750824989f156f1e0c428071d2775f37",
       "png": "fish.png",
@@ -61,6 +125,14 @@
       "source_sha256": "5e0c4ef9d3e8437c2ea230009ebe78085e101c490eb456c8b38d141411078864",
       "png": "gift.png",
       "png_sha256": "427a00640526184e7ada9ce906d32620349f984265132b69dd67ff8eb2b6e553",
+      "width": 96,
+      "height": 96
+    },
+    {
+      "source": "icons/outline/heart.svg",
+      "source_sha256": "f9f42a4d4ae0aca8f01dde4a7a255eff7af26ed0ee133b1458e9d3ff257464d6",
+      "png": "heart.png",
+      "png_sha256": "02f8345a5f6bd5d6c6cb85fb37539c1d715cb7f1f1ad76479be2376756c556ca",
       "width": 96,
       "height": 96
     },
@@ -81,10 +153,42 @@
       "height": 96
     },
     {
+      "source": "icons/outline/leaf.svg",
+      "source_sha256": "b661e18f1dc686659f811ea050b13aade9cd7a31962fd5b3ebb89e6222bab61a",
+      "png": "leaf.png",
+      "png_sha256": "37c651466c5c3c672ef383985893ff96ae6db84905bde93fef06bc79f2592c3b",
+      "width": 96,
+      "height": 96
+    },
+    {
       "source": "icons/outline/moon.svg",
       "source_sha256": "921d27bb214f2ec714ff4deeffa8a5efc4bb989e367df47f9f58351d2effee00",
       "png": "moon.png",
       "png_sha256": "c69ee6a009f3e2e71a6c6225512dfacdd575b019b834daa95d79f36a38fddbd6",
+      "width": 96,
+      "height": 96
+    },
+    {
+      "source": "icons/outline/music.svg",
+      "source_sha256": "8b69aafb5497fc9773078aab151dda57434e89011e712bb24c10c9b66f80ab68",
+      "png": "music.png",
+      "png_sha256": "684b478743348281f7ba692a2d042c5ed70a0511b29958ce7e166d94a7224fe7",
+      "width": 96,
+      "height": 96
+    },
+    {
+      "source": "icons/outline/paw.svg",
+      "source_sha256": "e67d565c67e6523cb0ef748202ccd33ef853dd6e87da1fe41c19052bc6f1fee4",
+      "png": "paw.png",
+      "png_sha256": "22cd494e79afa395809d15ca0889abe6ffebde7183b5075fc8c5e2eec8f3b746",
+      "width": 96,
+      "height": 96
+    },
+    {
+      "source": "icons/outline/phone.svg",
+      "source_sha256": "1b75d2a1fb7ac21d8c3db9e6e729b5445c72ae793e24be65b245d88c38622ab4",
+      "png": "phone.png",
+      "png_sha256": "15658e871b236b5dac21b1338cbaebe7d1597e9cb070647f68e8cd12ec16df0e",
       "width": 96,
       "height": 96
     },
@@ -101,6 +205,30 @@
       "source_sha256": "bd4cd3e27278d3c5a84b9480437d9c8bb10907540d01824ae2b0da6a16a0e84b",
       "png": "rocket.png",
       "png_sha256": "6e9f66893585440796f312395088e282e68570b56378fbd7a2f311fccdd12ab2",
+      "width": 96,
+      "height": 96
+    },
+    {
+      "source": "icons/outline/scissors.svg",
+      "source_sha256": "83c6cc1f7f66c4ad36656e99bcfec8dadf5750715ee105d5a401d94243b9726d",
+      "png": "scissors.png",
+      "png_sha256": "c5facdf49ffd5c3fc4ae2fe90dc95741700e5f33c2c6fa9a301e8a328abee0ff",
+      "width": 96,
+      "height": 96
+    },
+    {
+      "source": "icons/outline/ship.svg",
+      "source_sha256": "dd97fabe7c53488da5a9551d3834253374f88d3cc5bc5160ee7e33af089e592e",
+      "png": "ship.png",
+      "png_sha256": "ffbc11496c26571024620d428cb2a3acf31b19dd79ec5c78c5473446d5867734",
+      "width": 96,
+      "height": 96
+    },
+    {
+      "source": "icons/outline/snowflake.svg",
+      "source_sha256": "8b5ab3443869e0799665d2b4106fc7da6f8c1905d0aeeea01879401ddce7f4ed",
+      "png": "snowflake.png",
+      "png_sha256": "f9365e261efc54270a3f90c00a340d079a632d1cbf30c8ad093520498e405a61",
       "width": 96,
       "height": 96
     },

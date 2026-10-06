@@ -11,7 +11,9 @@ use Yaleksandr\HumanGate\Challenge\ChallengeId;
 use Yaleksandr\HumanGate\Challenge\ChallengeKind;
 use Yaleksandr\HumanGate\Challenge\PreparedChallenge;
 use Yaleksandr\HumanGate\Challenge\Purpose;
+use Yaleksandr\HumanGate\IconSequence\IconSequenceBlur;
 use Yaleksandr\HumanGate\IconSequence\IconSequenceOptions;
+use Yaleksandr\HumanGate\IconSequence\IconSequenceRenderOptions;
 use Yaleksandr\HumanGate\IconSequence\IconSequenceStrategy;
 use Yaleksandr\HumanGate\Internal\AnswerDigest;
 use Yaleksandr\HumanGate\Internal\IconSequence\IconSequenceCatalog;
@@ -109,6 +111,40 @@ final class IconSequenceStrategyTest extends TestCase
         self::assertCount(8, array_unique(array_map(static fn($choice): string => $choice->token, $prepared->presentation->choices)));
     }
 
+    #[TestDox('Отдельный профиль отрисовки не меняет варианты, канонический ответ и доказательство')]
+    public function testExplicitRenderOptionsPreserveAnswerProofAndChoices(): void
+    {
+        $default = unserialize(self::child('normal', 4, 8));
+        $configured = unserialize(self::child('configured', 4, 8));
+        self::assertInstanceOf(PreparedChallenge::class, $default);
+        self::assertInstanceOf(PreparedChallenge::class, $configured);
+        self::assertInstanceOf(IconSequencePresentation::class, $default->presentation);
+        self::assertInstanceOf(IconSequencePresentation::class, $configured->presentation);
+        self::assertEquals($default->proof, $configured->proof);
+        self::assertEquals($default->presentation->choices, $configured->presentation->choices);
+        self::assertNotSame($default->presentation->target->bytes, $configured->presentation->target->bytes);
+        self::assertSame(472, $configured->presentation->target->width);
+        self::assertSame(128, $configured->presentation->target->height);
+        $strategy = new IconSequenceStrategy(
+            new IconSequenceOptions(),
+            new IconSequenceRenderOptions(96, 96, IconSequenceBlur::None, 0, 0),
+        );
+        $active = new ActiveChallenge(
+            ChallengeId::fromString(str_repeat('a', 64)),
+            new Purpose('login'),
+            ChallengeKind::IconSequence,
+            1000,
+            1180,
+            $configured->proof,
+        );
+        $answer = implode(',', array_map(static fn(int $n): string => bin2hex(str_repeat(chr($n), 16)), range(1, 4)));
+        self::assertTrue($strategy->verify($active, $answer));
+        self::assertFalse($strategy->verify($active, ' ' . $answer));
+        foreach ($configured->presentation->choices as $choice) {
+            self::assertSame(['token', 'image'], array_keys(get_object_vars($choice)));
+        }
+    }
+
     public function testUnexpectedKind(): void
     {
         $active = new ActiveChallenge(ChallengeId::generate(), new Purpose('login'), ChallengeKind::TextImage, 1000, 1180, new AnswerProof(1, str_repeat('a', 64)));
@@ -164,14 +200,16 @@ final class IconSequenceStrategyTest extends TestCase
                 namespace Yaleksandr\HumanGate\IconSequence;
                 PHP
             . 'require ' . var_export(dirname(__DIR__, 3) . '/vendor/autoload.php', true) . '; '
-            . '$strategy = new IconSequenceStrategy(new IconSequenceOptions(' . $length . ', ' . $count . ')); '
+            . '$renderOptions = $mode === "configured" '
+            . '? new IconSequenceRenderOptions(96, 96, IconSequenceBlur::None, 0, 0) : new IconSequenceRenderOptions(); '
+            . '$strategy = new IconSequenceStrategy(new IconSequenceOptions(' . $length . ', ' . $count . '), $renderOptions); '
             . '$id = \\Yaleksandr\\HumanGate\\Challenge\\ChallengeId::fromString(str_repeat("a", 64)); '
             . '$purpose = new \\Yaleksandr\\HumanGate\\Challenge\\Purpose("login"); '
             . 'try { $prepared = $strategy->prepare($id, $purpose); '
-            . 'if ($mode === "normal") { '
+            . 'if ($mode === "normal" || $mode === "configured") { '
             . '$sequence = array_map(\\Yaleksandr\\HumanGate\\Internal\\IconSequence\\IconSequenceCatalog::image(...), '
             . 'array_slice(\\Yaleksandr\\HumanGate\\Internal\\IconSequence\\IconSequenceCatalog::names(), 0, ' . $length . ')); '
-            . '$expected = new \\Yaleksandr\\HumanGate\\Internal\\IconSequence\\IconSequenceRenderer()->render($sequence); '
+            . '$expected = new \\Yaleksandr\\HumanGate\\Internal\\IconSequence\\IconSequenceRenderer($renderOptions)->render($sequence); '
             . '\\PHPUnit\\Framework\\TestCase::assertSame($expected->bytes, $prepared->presentation->target->bytes); '
             . '$answer = implode(",", array_map(fn($n) => bin2hex(str_repeat(chr($n), 16)), range(1, ' . $length . '))); '
             . '$active = new \\Yaleksandr\\HumanGate\\State\\ActiveChallenge($id, $purpose, $strategy->kind(), 1000, 1180, $prepared->proof); '
