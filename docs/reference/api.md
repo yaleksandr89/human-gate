@@ -1,10 +1,12 @@
-# Справочник публичного API
+# Справочник API
 
-## Основная интеграция
+Основная точка входа в библиотеку — `ChallengeService`. Она создаёт задания, обновляет их и проверяет ответы. Остальные классы используются для настройки задания, хранения состояния и построения интерфейса.
 
-Все типы пакета ниже относятся к namespace `Yaleksandr\HumanGate\`; стандартные типы PHP указаны отдельно. В таблицах указаны подпространства имён; `ChallengeService` находится непосредственно в корневом namespace.
+Все указанные ниже типы находятся в пространстве имён `Yaleksandr\HumanGate\`; полные имена показаны там, где это помогает подключить класс.
 
-Соберите сервис из явно переданных зависимостей. Его публичные сигнатуры:
+## ChallengeService
+
+Конструктор сервиса принимает хранилище, правила работы, часы и одну или несколько стратегий:
 
 ```text
 public function __construct(
@@ -13,18 +15,40 @@ public function __construct(
     Clock $clock,
     ChallengeStrategy ...$strategies,
 )
+```
 
+Повторно регистрировать стратегию одного вида нельзя. При проверке задания сервис выбирает стратегию по типу, сохранённому на сервере; поэтому для всех ещё действующих видов CAPTCHA соответствующие стратегии должны оставаться зарегистрированными.
+
+### issue()
+
+```text
 public function issue(
     Purpose $purpose,
     ChallengeKind $kind = ChallengeKind::TextImage,
 ): IssueResult
+```
 
+Создаёт задание заданного вида. При успешной выдаче `IssueResult::code` равен `LifecycleCode::Issued`, а `challenge` содержит `IssuedChallenge`. Если лимит действующих заданий исчерпан, результатом будет `CapacityExceeded` и `challenge === null`.
+
+Без второго аргумента создаётся `TextImage`. Другие виды задаются через `ChallengeKind::CategorySelection` или `ChallengeKind::IconSequence`.
+
+### replace()
+
+```text
 public function replace(
     ChallengeId $oldId,
     Purpose $purpose,
     ChallengeKind $kind = ChallengeKind::TextImage,
 ): IssueResult
+```
 
+Создаёт новое задание взамен указанного. Успех возвращает `LifecycleCode::Refreshed` и новый `IssuedChallenge`. Старый идентификатор больше не подходит для проверки. Возможно обновление ещё действующего или недавно истёкшего задания, если его запись сохранилась.
+
+Новый тип тоже по умолчанию равен `TextImage`. Для обновления задания другого вида аргумент `kind` указывается явно. Подробные ограничения описаны в [жизненном цикле](lifecycle.md).
+
+### verify()
+
+```text
 public function verify(
     ChallengeId $id,
     Purpose $purpose,
@@ -32,70 +56,68 @@ public function verify(
 ): VerificationCode
 ```
 
-`ChallengeStore`, `ChallengeStrategy` и `Clock` находятся в `Port\`; параметры и результаты — в `Challenge\`.
+Проверяет ответ по сохранённым на сервере данным. Возвращает одно из значений `VerificationCode`. Значение `Accepted` означает, что ответ правильный и повторно использовать это задание уже нельзя. Неверный ответ и окончание срока возвращаются отдельными кодами, а не исключениями.
 
-`issue()` и `replace()` по умолчанию используют TextImage. Для CategorySelection и IconSequence передайте kind явно. `verify()` выбирает стратегию по kind в серверной записи. Зарегистрируйте все стратегии для ещё действующих заданий; повторная регистрация одного kind недопустима.
-
-| Тип | Публичный контракт |
+| Значение `VerificationCode` | Что означает |
 | --- | --- |
-| `Challenge\ChallengeId` | `generate(): self`, `fromString(string $value): self`, `value(): string`; ровно 64 строчных hex-символа |
-| `Challenge\Purpose` | `__construct(string $value)`, `value(): string`; 1..64 ASCII-байта, первый символ `[a-z0-9]`, остальные `[a-z0-9._-]` |
-| `Challenge\ChallengeKind` | String enum: `TextImage = 'text_image'`, `CategorySelection = 'category_selection'`, `IconSequence = 'icon_sequence'` |
+| `Accepted` | Ответ правильный; задание уже использовано |
+| `Incorrect` | Ответ неверный, попытки ещё есть |
+| `AttemptsExhausted` | Попытки закончились |
+| `Expired` | Срок задания истёк, запись ещё сохранилась |
+| `NotFound` | Задание не найдено либо старая запись удалена |
+| `PurposeMismatch` | Назначение задания не соответствует действию |
+| `AlreadyConsumed` | Правильный ответ по этому заданию уже был принят |
+| `Replaced` | Задание ранее было обновлено |
 
-Purpose и выбор kind принадлежат серверу. ID можно переносить через браузер как непрозрачное значение. Разбор ID не доказывает существование или корректность задания.
+HTTP-коды и сообщения пользователю определяет приложение. Практический пример проверки находится в [руководстве по интеграции](../guides/integration.md#проверка-ответа).
 
-## Жизненный цикл и результаты
+## Policy
 
-`Challenge\Policy` — неизменяемая конфигурация. Все значения положительны, `maxActivePerPurpose <= maxActive`.
+Объект `Challenge\Policy` позволяет изменить время действия, число попыток и ограничения на количество заданий:
 
-| Параметр конструктора / поле | По умолчанию |
-| --- | --- |
-| `ttlSeconds` | `180` |
-| `maxWrongAttempts` | `3` |
-| `maxActive` | `12` |
-| `maxActivePerPurpose` | `4` |
-| `maxTombstones` | `32` |
-| `terminalRetentionSeconds` | `180` |
+```php
+<?php
 
-Задание действительно при `now < expiresAt`. `maxActive*` ограничивает активное состояние, а не частоту HTTP-запросов. Правила истечения срока, замены и удаления записей описаны в [жизненном цикле](lifecycle.md).
+use Yaleksandr\HumanGate\Challenge\Policy;
 
-| Тип | Поля конструктора / публичные поля |
-| --- | --- |
-| `Challenge\IssueResult` | `State\LifecycleCode $code`, `?IssuedChallenge $challenge` |
-| `Challenge\IssuedChallenge` | `ChallengeId $id`, `ChallengeKind $kind`, `int $expiresAt`, `Presentation $presentation` |
+$policy = new Policy(
+    ttlSeconds: 180,
+    maxWrongAttempts: 3,
+    maxActive: 12,
+    maxActivePerPurpose: 4,
+    maxTombstones: 32,
+    terminalRetentionSeconds: 180,
+);
+```
 
-`expiresAt` — Unix-время в секундах. `IssueResult` требует непустой `challenge` для `Issued` и `Refreshed`; для допустимых отрицательных кодов `challenge` равен `null`.
-
-Обычная выдача возвращает `LifecycleCode::Issued` или `CapacityExceeded`. Замена возвращает `Refreshed`, `CapacityExceeded`, `NotFound`, `PurposeMismatch`, `AttemptsExhausted`, `AlreadyConsumed` или `Replaced`. DTO допускает также отрицательный `Expired`; сохранённую истёкшую запись текущая замена обрабатывает как кандидат на обновление.
-
-`State\LifecycleCode` содержит `Active`, `Issued`, `Refreshed`, `Consumed`, `WrongAttempt`, `CapacityExceeded`, `NotFound`, `PurposeMismatch`, `Expired`, `AttemptsExhausted`, `AlreadyConsumed`, `Replaced`. `ChallengeService::verify()` возвращает отдельный публичный `VerificationCode`:
-
-| Case | Строковое значение | Смысл |
+| Параметр | По умолчанию | Назначение |
 | --- | --- | --- |
-| `Accepted` | `accepted` | Ответ принят, задание потреблено |
-| `Incorrect` | `incorrect` | Неверный ответ, лимит ещё не достигнут |
-| `AttemptsExhausted` | `attempts_exhausted` | Попытки исчерпаны |
-| `NotFound` | `not_found` | Записи нет, в том числе после удаления |
-| `PurposeMismatch` | `purpose_mismatch` | Назначение не совпало |
-| `Expired` | `expired` | Срок истёк, терминальная запись сохранена |
-| `AlreadyConsumed` | `already_consumed` | Задание уже потреблено, запись сохранена |
-| `Replaced` | `replaced` | Задание заменено, запись сохранена |
+| `ttlSeconds` | `180` | Время действия задания в секундах |
+| `maxWrongAttempts` | `3` | Число неверных попыток |
+| `maxActive` | `12` | Максимум действующих заданий |
+| `maxActivePerPurpose` | `4` | Максимум действующих заданий одного назначения |
+| `maxTombstones` | `32` | Предел сохраняемых записей о завершённых заданиях |
+| `terminalRetentionSeconds` | `180` | Время хранения завершённых записей в секундах |
 
-HTTP-коды и публичные тексты ошибок выбирает приложение. Внутренние переходы состояния не являются рекомендуемой точкой входа вместо `ChallengeService`.
+Все параметры положительные; `maxActivePerPurpose` не превышает `maxActive`. Лимиты действующих заданий не ограничивают частоту HTTP-запросов. Условия истечения срока и обновления описаны в [жизненном цикле](lifecycle.md).
 
-## Storage и Clock
+## Основные типы
 
-| Тип | Конструктор / метод |
+| Тип | Для чего используется |
 | --- | --- |
-| `Session\NativeSessionChallengeStore` | `__construct(ActiveNativeSessionScope $scope)`; реализация `ChallengeStore` |
-| `Clock\SystemClock` | `now(): int`; реализация `Port\Clock`, возвращает системное Unix-время в секундах |
-| `Port\Clock` | `now(): int`; часы для жизненного цикла |
+| `Challenge\ChallengeId` | Идентификатор задания; `generate()`, `fromString(string $value)`, `value(): string` |
+| `Challenge\Purpose` | Назначение защищаемого действия; создаётся из строки, `value(): string` |
+| `Challenge\ChallengeKind` | Вид CAPTCHA: `TextImage`, `CategorySelection`, `IconSequence` |
+| `Challenge\IssueResult` | Результат создания или обновления, поля `code` и `challenge` |
+| `Challenge\IssuedChallenge` | Новое задание с полями `id`, `kind`, `expiresAt`, `presentation` |
 
-Поставляемый storage adapter работает с уже активной native files session. Порт `ChallengeStore` предназначен для атомарного состояния; его требования приведены в разделе расширения. Начальную session открывает приложение.
+`ChallengeId` представлен строкой из 64 строчных шестнадцатеричных символов. `Purpose` имеет длину от 1 до 64 байт и допускает строчные латинские буквы, цифры, точки, подчёркивания и дефисы; первый символ — буква или цифра.
+
+Назначение выбирает сервер. Идентификатор можно передавать через браузер, но он не подтверждает прохождение проверки сам по себе. `IssuedChallenge::expiresAt` содержит время окончания действия в формате Unix.
 
 ## TextImage
 
-Namespace настроек и реализации: `TextImage\`; порт отрисовки: `Port\TextImageRenderer`.
+Основные классы находятся в `TextImage\`:
 
 ```text
 TextImageStrategy::__construct(
@@ -117,38 +139,35 @@ TextImageRenderOptions::__construct(
 )
 ```
 
-Здесь и ниже приведены справочные сигнатуры конструкторов. Исполняемые примеры находятся в тематических руководствах.
-
-`TextImageBlur`: `None`, `Light`, `Standard`, `Strong`. `scalePercent`: `100|105|110|115|120`, `lightNoisePercent`: `0..150`, `maxRotationDegrees`: `0..28`.
-
-`GdTextImageRenderer::render(string $canonicalAnswer): ImagePresentation` принимает канонические 6 ASCII-байт, сохраняет регистр и выдаёт PNG без вывода. Стратегия реализует `kind()`, `prepare()` и `verify()` порта `ChallengeStrategy`. Сырой пользовательский ответ ограничен 64 байтами; подробности нормализации, алфавитов и runtime — в [TextImage](../challenges/text-image.md).
+`TextImageBlur`: `None`, `Light`, `Standard`, `Strong`. Масштаб — `100`, `105`, `110`, `115`, `120`; шум — от `0` до `150`, поворот — от `0` до `28` градусов. Чувствительность к регистру задаётся отдельно. Длина ответа всегда шесть символов. Полный пример и правила ответа находятся в [руководстве TextImage](../challenges/text-image.md).
 
 ## CategorySelection
 
-Namespace: `CategorySelection\`.
+Основные классы находятся в `CategorySelection\`:
 
 ```text
 CategorySelectionCategory::__construct(string $label, array $items)
-
 CategorySelectionOptions::__construct(int $cardCount = 6, int $targetCount = 2)
-
 CategorySelectionStrategy::__construct(
     array $categories,
     CategorySelectionOptions $options = new CategorySelectionOptions(),
 )
 ```
 
-`CategorySelectionCategory` открывает `label` и `items` как список строк. Стратегия принимает список 2..16 таких категорий, по 1..32 предмета. Подписи — UTF-8 текст длиной 1..80 байт без C0, DEL и крайних ASCII space/tab/CR/LF. Названия категорий уникальны, подписи предметов уникальны точным сравнением во всём каталоге.
+Стратегия принимает от 2 до 16 категорий с 1–32 предметами в каждой. `cardCount` — от 3 до 12, `targetCount` — от 1 до значения строго меньше `cardCount`. Текстовые подписи должны быть корректным UTF-8 длиной до 80 байт; названия и подписи в каталоге уникальны.
 
-`cardCount`: `3..12`; `targetCount >= 1` и `< cardCount`. Каждая категория содержит достаточно целевых предметов; остальные вместе — достаточно отвлекающих. Семантику каталога определяет приложение.
-
-Стратегия реализует `ChallengeStrategy`. Ответ — уникальные непрозрачные токены через запятую; порядок не важен, предел сырой строки — 512 байт. [CategorySelection](../challenges/category-selection.md) описывает каталог, канонизацию и замену.
+Ответ состоит из токенов выбранных карточек через запятую, порядок не важен. Подробное описание подготовки каталога и интерфейса — в [руководстве CategorySelection](../challenges/category-selection.md).
 
 ## IconSequence
 
-Namespace: `IconSequence\`.
+Основные классы находятся в `IconSequence\`:
 
 ```text
+IconSequenceStrategy::__construct(
+    IconSequenceOptions $options = new IconSequenceOptions(),
+    IconSequenceRenderOptions $renderOptions = new IconSequenceRenderOptions(),
+)
+
 IconSequenceOptions::__construct(int $sequenceLength = 4, int $choiceCount = 8)
 
 IconSequenceRenderOptions::__construct(
@@ -158,95 +177,56 @@ IconSequenceRenderOptions::__construct(
     int $noisePercent = 150,
     int $maxRotationDegrees = 90,
 )
-
-IconSequenceStrategy::__construct(
-    IconSequenceOptions $options = new IconSequenceOptions(),
-    IconSequenceRenderOptions $renderOptions = new IconSequenceRenderOptions(),
-)
 ```
 
-`sequenceLength`: `3..6`; `choiceCount`: от `sequenceLength + 2` до `12`. Размеры: `72..96`, `maxIconSize >= minIconSize`; шум: `0..150`; поворот: `0..90`. Габарит повёрнутого квадрата должен помещаться в высоту цели 128 пикселей. `IconSequenceBlur`: `None`, `Light`, `Standard`, `Strong`.
+В последовательности от 3 до 6 значков; вариантов от `sequenceLength + 2` до 12. Размер значка от 72 до 96 пикселей, шум от 0 до 150, поворот от 0 до 90 градусов. `IconSequenceBlur`: `None`, `Light`, `Standard`, `Strong`.
 
-Стратегия реализует `ChallengeStrategy`. Ответ — 3..6 уникальных токенов через запятую в порядке выбора, максимум 197 байт. Сортировка и нормализация пробелов не выполняются. [IconSequence](../challenges/icon-sequence.md) описывает размеры, rendering и изображения вариантов.
+Ответ состоит из токенов через запятую **в порядке выбора пользователя**. Параметры изображения и точный формат ответа описаны в [руководстве IconSequence](../challenges/icon-sequence.md).
 
-## Presentation types
+## Данные для интерфейса
 
-Все типы находятся в `Presentation\`. DTO неизменяемы; их конструкторы проверяют собственные ограничения. `Presentation` — общий маркерный интерфейс, без методов.
+Все типы представления находятся в `Presentation\`:
 
-| Тип | Параметры конструктора / поля |
+| Тип | Поля |
 | --- | --- |
-| `ImagePresentation` | `string $mimeType`, `string $bytes`, `int $width`, `int $height` |
-| `CategorySelectionPresentation` | `string $category`, `array $cards` — список `CategorySelectionCard` |
-| `CategorySelectionCard` | `string $token`, `string $label` |
-| `IconSequencePresentation` | `ImagePresentation $target`, `int $requiredSelections`, `array $choices` — список `IconSequenceChoice` |
-| `IconSequenceChoice` | `string $token`, `ImagePresentation $image` |
+| `ImagePresentation` | `mimeType`, `bytes`, `width`, `height` |
+| `CategorySelectionPresentation` | `category`, `cards` |
+| `CategorySelectionCard` | `token`, `label` |
+| `IconSequencePresentation` | `target`, `requiredSelections`, `choices` |
+| `IconSequenceChoice` | `token`, `image` |
 
-Общий `ImagePresentation` допускает `image/png`, `image/jpeg`, `image/webp`, непустые сырые байты до 131072 и размеры `1..4096` по каждой оси. Поставляемые TextImage и IconSequence используют PNG; оба изображения IconSequence требуют MIME `image/png`.
+`ImagePresentation` хранит сырые байты изображения. Общий тип принимает `image/png`, `image/jpeg` и `image/webp`, размер изображения от 1 до 4096 пикселей по каждой стороне и не более 131072 байт данных. Встроенные генераторы TextImage и IconSequence используют PNG.
 
-CategorySelection presentation содержит 3..12 карточек, уникальные токены и подписи. Категория и подписи проходят текстовую границу 1..80 UTF-8 байт. В IconSequence `requiredSelections` равен `3..6`, вариантов от `requiredSelections + 2` до `12`, токены и байты изображений вариантов уникальны. Токены обоих типов — ровно 32 строчных hex-символа.
+`CategorySelectionPresentation` даёт текст категории и карточек. `IconSequencePresentation` даёт изображение с нужной последовательностью и варианты значков; отдельный вариант содержит токен и изображение, но не название значка или его правильную позицию.
 
-Presentation не выдаёт готовый HTML. Семантических названий, путей файлов, target membership и правильных позиций IconSequence в этих DTO нет. Рекомендации по выводу — в [интеграции](../guides/integration.md) и [доступности](../accessibility.md).
+## Хранилище и время
 
-## Native PHP session
+| Тип | Назначение |
+| --- | --- |
+| `Session\ActiveNativeSessionScope::capture()` | Получает контекст уже открытой встроенной сессии PHP |
+| `Session\NativeSessionChallengeStore` | Хранит задания в поддерживаемой сессии PHP |
+| `Clock\SystemClock` | Возвращает текущее Unix-время через `now(): int` |
 
-`Session\ActiveNativeSessionScope::capture(): self` захватывает полномочие только из активной поддерживаемой session. Передайте его в `NativeSessionChallengeStore` для одной границы изменяющей операции.
+`NativeSessionChallengeStore` принимает объект `ActiveNativeSessionScope`. Поддерживаются обработчик `files` и форматы сериализации `php` или `php_serialize`. Начальную сессию открывает приложение. После изменения данных адаптер может закрыть сессию; полный порядок работы описан в [интеграции](../guides/integration.md#хранение-в-сессии-php).
 
-Scope также имеет `assertActive(): void` и `commitAndRead(): mixed` для работы adapter. Обычная интеграция вызывает `capture()`; фиксацией и проверкой записи управляет storage adapter.
+## Исключения
 
-Поддерживаются native module/save handler `files` и serializer `php` или `php_serialize`. Реальное изменение закрывает session и проверяет запись через повторное открытие только для чтения. Истинная операция без изменения может оставить session активной. После изменения приложение самостоятельно управляет последующими записями в `$_SESSION`. [Руководство интеграции](../guides/integration.md) объясняет порядок вызовов и требования к заголовкам.
+Неверный ответ пользователя возвращает значение `VerificationCode`. Ошибки настройки или работы окружения могут приводить к исключениям:
 
-## Exceptions
+| Тип | Когда возникает |
+| --- | --- |
+| `InvalidArgumentException` | Некорректные настройки, идентификатор или другие аргументы |
+| `Exception\UnsupportedChallengeKindException` | Запрошена стратегия, не зарегистрированная в сервисе |
+| `Exception\RenderingException` | Не удалось сформировать изображение |
+| `Random\RandomException` | Сбой безопасного генератора случайных данных |
+| `Session\NativeSessionStorageException` | Не удалось прочитать, изменить или подтвердить хранение задания в сессии |
 
-| Категория | Тип | Смысл |
-| --- | --- | --- |
-| Ошибка конфигурации или вызова | `InvalidArgumentException` | Некорректные options, DTO, прямой вход renderer, повтор стратегии |
-| Отсутствует стратегия | `Exception\UnsupportedChallengeKindException` | Kind не зарегистрирован; наследует `InvalidArgumentException` |
-| Rendering/runtime | `Exception\RenderingException` | Сбой GD/FreeType, ресурсов или обработки изображения; наследует `RuntimeException` |
-| Случайность | `Random\RandomException` | Ошибка безопасного источника случайности может передаться вызывающему коду |
-| Native session infrastructure | `Session\NativeSessionStorageException` | Сбой storage с типизированным `reason`; наследует `RuntimeException`, может сохранять `previous` |
+У `NativeSessionStorageException` есть поле `reason` типа `NativeSessionStorageFailureReason`. Возможные причины: `UnsupportedSession`, `SessionIdentity`, `HeadersSent`, `MalformedState`, `SizeLimit`, `Randomness`, `Commit`, `Verification`. Технические сведения об ошибке не следует передавать пользователю напрямую.
 
-`Incorrect`, `AttemptsExhausted`, `Expired`, `AlreadyConsumed`, `Replaced`, `NotFound`, `PurposeMismatch` — обычные результаты, отдельно от инфраструктурных исключений. При инфраструктурном сбое не продолжайте защищаемое действие и не подменяйте сбой результатом `Incorrect`.
+## Расширение библиотеки
 
-`NativeSessionStorageFailureReason` — string enum в `Session\`:
+Для собственного хранилища, часов или генератора заданий предусмотрены интерфейсы `Port\ChallengeStore`, `Port\Clock`, `Port\ChallengeStrategy` и `Port\TextImageRenderer`.
 
-| Case | Строковое значение | Граница сбоя |
-| --- | --- | --- |
-| `UnsupportedSession` | `unsupported_session` | Неактивная, неподдерживаемая session или израсходованный scope |
-| `SessionIdentity` | `session_identity` | Нарушение идентичности session |
-| `HeadersSent` | `headers_sent` | Заголовки уже отправлены при изменении |
-| `MalformedState` | `malformed_state` | Некорректное состояние пакета |
-| `SizeLimit` | `size_limit` | Превышен предел состояния |
-| `Randomness` | `randomness` | Не удалось получить случайные данные для storage |
-| `Commit` | `commit` | Сбой фиксации |
-| `Verification` | `verification` | Сохранённую запись не удалось подтвердить |
+`ChallengeStore::atomic()` принимает преобразование состояния и возвращает его результат. Реализация должна защищать данные от одновременного изменения и подтверждать сохранение **до возврата успешного результата**. Ошибка записи не должна выглядеть как успешная проверка; из-за этого реализация собственного хранилища требует отдельной проверки атомарности и обработки сбоев.
 
-`NativeSessionStorageException` конструируется с `NativeSessionStorageFailureReason $reason` и необязательным `?Throwable $previous = null`; публичное readonly поле `reason` позволяет различить причины. Детали инфраструктуры не назначаются автоматически сообщениями браузеру.
-
-## Расширение пакета
-
-Эти контракты нужны при реальном требовании собственного адаптера, часов, средства отрисовки или типа стратегии. Для обычной интеграции используйте поставляемые реализации и `ChallengeService`.
-
-| Контракт | Методы / поля | Требование |
-| --- | --- | --- |
-| `Port\ChallengeStore` | `atomic(Closure $transition): mixed` | Атомарное преобразование `State\ChallengeBucket`, возвращающее результат callback |
-| `Port\ChallengeStrategy` | `kind(): ChallengeKind`; `prepare(ChallengeId $id, Purpose $purpose): PreparedChallenge`; `verify(ActiveChallenge $challenge, string $submittedAnswer): bool` | Подготовка до сохранения; ограниченная проверка без побочных эффектов |
-| `Port\Clock` | `now(): int` | Unix-время в секундах; жизненный цикл требует неотрицательное значение |
-| `Port\TextImageRenderer` | `render(string $canonicalAnswer): ImagePresentation` | Канонические 6 ASCII-байт с сохранением регистра; результат без вывода, сбой через исключение |
-| `Challenge\PreparedChallenge` | `State\AnswerProof $proof`, `Presentation $presentation` | Серверный proof и отдельное клиентское представление |
-| `State\ActiveChallenge` | `id`, `purpose`, `kind`, `issuedAt`, `expiresAt`, `proof`, `wrongAttempts = 0` | Неизменяемая запись; время выдачи неотрицательно, срок позже выдачи, число ошибок неотрицательно |
-| `State\AnswerProof` | `int $format`, `string $digest` | Format `1`, digest — 64 строчных hex-символа; только сервер |
-| `State\ChallengeBucket` | Доступ к активным и терминальным записям | Изменяется только внутри `ChallengeStore::atomic()` |
-
-`ChallengeStore` устанавливает исключительное владение или сериализацию доступа до чтения актуального состояния. Callback получает изолированный авторитетный bucket. Изменения фиксируются до возврата результата; сбой фиксации должен выбросить исключение. Сбой callback сохраняет предыдущее состояние без частичной записи. Сохранённая ссылка на bucket или результат не должна позволять менять уже зафиксированное состояние.
-
-Callback не выполняет необратимых внешних действий и не удерживает bucket для дальнейших изменений; вложенные `atomic()` не поддерживаются. Гарантии ограничены поддерживаемой средой конкретного adapter и не обещают распределённого консенсуса.
-
-`ActiveChallenge::withWrongAttempt(): self` создаёт запись с увеличенным счётчиком. Параметры конструктора: `ChallengeId $id`, `Purpose $purpose`, `ChallengeKind $kind`, `int $issuedAt`, `int $expiresAt`, `AnswerProof $proof`, `int $wrongAttempts = 0`.
-
-`ChallengeBucket` предоставляет `active()`, `tombstone()`, `setActive()`, `setTombstone()`, `removeTombstone()`, `activeChallenges()`, `tombstones()`, `activeCount(?Purpose $purpose = null)` и `copyFrom()`. Терминальный ID нельзя вернуть в активное состояние. Терминальная запись использует `State\TerminalReason`: `Expired`, `AttemptsExhausted`, `Consumed`, `Replaced`. Эти state types остаются серверными.
-
-`State\LifecycleResult` сочетает `LifecycleCode` и необязательный `ActiveChallenge`; запись обязательна для `Active`, `Issued`, `Refreshed`, `WrongAttempt` и отсутствует для других кодов. В приложении используйте `IssueResult` и `VerificationCode` сервиса.
-
-## См. также
-
-[Интеграция](../guides/integration.md) показывает исполняемые примеры, [жизненный цикл](lifecycle.md) — правила результатов, [модель безопасности](../security-model.md) — серверные данные и ответственность приложения.
+`Clock::now()` возвращает Unix-время в секундах. `ChallengeStrategy` задаёт тип, создание и проверку задания через `kind()`, `prepare()` и `verify()`. `TextImageRenderer::render()` возвращает `ImagePresentation`. Для обычного использования достаточно уже включённых реализаций; примеры работы с ними находятся в [руководстве по интеграции](../guides/integration.md).

@@ -4,43 +4,44 @@
 [![CI](https://github.com/yaleksandr89/human-gate/actions/workflows/ci.yml/badge.svg)](https://github.com/yaleksandr89/human-gate/actions/workflows/ci.yml)
 [![PHP](https://img.shields.io/badge/PHP-%5E8.4-777BB4.svg?style=flat-square&logo=php&logoColor=white)](https://www.php.net/)
 
-Human Gate — лёгкая first-party библиотека CAPTCHA и anti-bot проверок для PHP. Ядро не зависит от фреймворка, а авторитетное состояние проверки хранится на сервере приложения.
+Библиотека для создания и проверки CAPTCHA в приложениях на PHP. Помогает защитить формы и другие действия от автоматических запросов без привязки к конкретному фреймворку.
 
-Пакет создаёт задания TextImage, CategorySelection и IconSequence, проверяет ответы и управляет их жизненным циклом. Приложение получает типизированные данные представления и строит свой интерфейс.
+Human Gate создаёт задания, проверяет ответы и хранит сведения о проверках на сервере. Приложение самостоятельно оформляет задания и решает, какое действие выполнить после успешной проверки.
 
 ## Для чего нужен пакет
 
-Добавьте проверку перед отправкой формы или другим защищаемым действием. Приложение выбирает назначение проверки на сервере и выполняет действие только после `VerificationCode::Accepted` в том же запросе или потоке обработки.
+Проверка CAPTCHA может использоваться перед отправкой формы, регистрацией или другим действием, для которого важно сократить число автоматических обращений. Правильность ответа определяет сервер, а не код в браузере.
 
 ## Возможности
 
-- Три типа заданий: текст на изображении, выбор категории и последовательность значков.
-- Привязка к серверному `Purpose`, TTL, лимит неверных ответов и одноразовое принятие ответа.
-- Замена задания с новым ID и атомарное изменение состояния через `ChallengeStore`.
-- Готовый адаптер для native PHP session и часы `SystemClock`.
-- Типизированные `Presentation`, без готовых HTML-виджетов и сторонних Composer-библиотек в runtime.
+- Три вида CAPTCHA: [ввод символов с изображения](docs/challenges/text-image.md), [выбор карточек по категории](docs/challenges/category-selection.md) и [повторение порядка значков](docs/challenges/icon-sequence.md).
+- Настраиваемые срок действия задания, количество попыток и ограничения на число одновременно созданных проверок.
+- Обновление задания и защита от повторного использования уже принятого ответа.
+- Работа без привязки к фреймворку; готовое [хранилище на основе сессий PHP](docs/guides/integration.md#хранение-в-сессии-php).
+- Типизированные данные для интерфейса без дополнительных библиотек, отвечающих за HTML, CSS и JavaScript.
 
 ## Требования
 
-- PHP `^8.4`; целевая версия разработки — PHP 8.5.
-- `ext-gd`; для TextImage нужны возможности GD/FreeType `imagettf*`.
-- Для поставляемого session adapter — активная native `files` session с serializer `php` или `php_serialize`.
-
-Подробности окружения и владения session описаны в [руководстве интеграции](docs/guides/integration.md).
+- PHP `^8.4`.
+- Расширение `ext-gd`; для текстовых изображений необходима поддержка FreeType в GD.
+- Composer для подключения пакета.
 
 ## Установка
-
-Пакет ещё не создан на Packagist, стабильный релиз не опубликован. После публикации установка будет выполняться командой:
 
 ```bash
 composer require yaleksandr89/human-gate
 ```
 
-Для текущего исходного дерева приложение должно отдельно настроить получение пакета через Composer. Примеры ниже предполагают доступный Composer autoload.
-
 ## Быстрый старт
 
-Выдача TextImage в одном запросе. Приложение настраивает и открывает session до захвата scope и до вывода ответа:
+Human Gate поддерживает три вида проверок. Примеры ниже показывают их создание средствами PHP. Для каждого примера предполагается, что Composer уже подключил пакет, а приложение использует встроенные сессии PHP.
+
+### Текстовая CAPTCHA (`TextImage`)
+
+Пользователь вводит шесть символов, показанных на изображении. По умолчанию регистр букв не учитывается.
+
+<details>
+<summary>Показать PHP-пример создания текстовой CAPTCHA</summary>
 
 ```php
 <?php
@@ -59,128 +60,216 @@ use Yaleksandr\HumanGate\TextImage\TextImageStrategy;
 require 'vendor/autoload.php';
 
 if (!session_start()) {
-    throw new RuntimeException('Не удалось открыть session приложения.');
+    throw new RuntimeException('Не удалось открыть сессию PHP.');
 }
 
-$scope = ActiveNativeSessionScope::capture();
 $service = new ChallengeService(
-    new NativeSessionChallengeStore($scope),
+    new NativeSessionChallengeStore(ActiveNativeSessionScope::capture()),
     new Policy(),
     new SystemClock(),
     new TextImageStrategy(new GdTextImageRenderer()),
 );
 
 $result = $service->issue(new Purpose('contact.send'));
-if ($result->challenge !== null) {
-    $challenge = $result->challenge;
-    $id = $challenge->id->value();
-    $presentation = $challenge->presentation;
+if ($result->challenge === null) {
+    throw new RuntimeException('Не удалось создать задание CAPTCHA.');
 }
+
+$id = $result->challenge->id->value();
+$presentation = $result->challenge->presentation;
 ```
 
-При отсутствии `challenge` обработайте `$result->code`. После реального изменения состояния adapter фиксирует и закрывает session: дальнейшие записи в `$_SESSION` требуют управления session со стороны приложения.
+</details>
 
-В следующем запросе заново откройте session, захватите scope и соберите сервис. Передайте ID и ответ в `verify()` с тем же серверным `Purpose`. Полный пример, отображение данных и обработка результатов — в [руководстве интеграции](docs/guides/integration.md).
+Для текстовой CAPTCHA настраиваются чувствительность к регистру, масштаб изображения, размытие, шум и поворот символов. [Все параметры `TextImage`](docs/challenges/text-image.md) приведены в отдельном руководстве.
 
-## Типы проверок
+### Выбор карточек по категории (`CategorySelection`)
 
-### TextImage
-
-Пользователь вводит шесть символов с PNG-изображения. По умолчанию регистр не учитывается. [Настройки ответа и отрисовки](docs/challenges/text-image.md).
-
-### CategorySelection
-
-Пользователь выбирает все карточки целевой категории. Каталог задаёт приложение; порядок выбранных токенов не важен. [Каталог, представление и формат ответа](docs/challenges/category-selection.md).
-
-### IconSequence
-
-Пользователь повторяет порядок значков с целевого изображения. Порядок выбранных токенов значим. [Настройки задания и изображения](docs/challenges/icon-sequence.md).
-
-## Примеры интерфейса
-
-Скриншоты показывают один из вариантов интерфейса приложения в светлой и тёмной темах, в настольной и мобильной компоновках. Human Gate предоставляет типизированные `Presentation`, а HTML/CSS/JS-интерфейс строит приложение: готовые виджеты в пакет не входят.
-
-### TextImage
-
-<img src="docs/images/examples/text-image-light-desktop.png" alt="Интерфейс TextImage в светлой теме: настольная компоновка с изображением задания и полем ввода" width="720">
+Пользователь выбирает все карточки, относящиеся к заданной категории. Названия категорий и карточек определяет приложение; порядок выбора не влияет на результат.
 
 <details>
-<summary>TextImage: тёмная тема и мобильные компоновки</summary>
+<summary>Показать PHP-пример создания CAPTCHA с выбором карточек</summary>
 
-Тёмная тема, настольная компоновка:
+```php
+<?php
 
-<img src="docs/images/examples/text-image-dark-desktop.png" alt="Интерфейс TextImage в тёмной теме, настольная компоновка" width="720">
+declare(strict_types=1);
 
-Светлая тема, мобильная компоновка:
+use Yaleksandr\HumanGate\CategorySelection\CategorySelectionCategory;
+use Yaleksandr\HumanGate\CategorySelection\CategorySelectionStrategy;
+use Yaleksandr\HumanGate\Challenge\ChallengeKind;
+use Yaleksandr\HumanGate\Challenge\Policy;
+use Yaleksandr\HumanGate\Challenge\Purpose;
+use Yaleksandr\HumanGate\ChallengeService;
+use Yaleksandr\HumanGate\Clock\SystemClock;
+use Yaleksandr\HumanGate\Session\ActiveNativeSessionScope;
+use Yaleksandr\HumanGate\Session\NativeSessionChallengeStore;
 
-<img src="docs/images/examples/text-image-light-mobile.png" alt="Интерфейс TextImage в светлой теме, мобильная компоновка" width="360">
+require 'vendor/autoload.php';
 
-Тёмная тема, мобильная компоновка:
+if (!session_start()) {
+    throw new RuntimeException('Не удалось открыть сессию PHP.');
+}
 
-<img src="docs/images/examples/text-image-dark-mobile.png" alt="Интерфейс TextImage в тёмной теме, мобильная компоновка" width="360">
+$service = new ChallengeService(
+    new NativeSessionChallengeStore(ActiveNativeSessionScope::capture()),
+    new Policy(),
+    new SystemClock(),
+    new CategorySelectionStrategy([
+        new CategorySelectionCategory('Фрукты', ['Яблоко', 'Груша', 'Слива', 'Персик']),
+        new CategorySelectionCategory('Инструменты', ['Молоток', 'Пила', 'Отвёртка', 'Клещи']),
+    ]),
+);
+
+$result = $service->issue(new Purpose('contact.send'), ChallengeKind::CategorySelection);
+if ($result->challenge === null) {
+    throw new RuntimeException('Не удалось создать задание CAPTCHA.');
+}
+
+$id = $result->challenge->id->value();
+$presentation = $result->challenge->presentation;
+```
 
 </details>
 
-### CategorySelection
+Количество карточек, число правильных вариантов и содержание категорий можно менять. [Настройки `CategorySelection`](docs/challenges/category-selection.md) описаны с правилами составления каталога.
 
-<img src="docs/images/examples/category-selection-light-desktop.png" alt="Интерфейс CategorySelection в светлой теме: настольная компоновка с карточками для выбора" width="720">
+### Повторение порядка значков (`IconSequence`)
+
+Пользователь выбирает значки в том же порядке, в котором они показаны на изображении. Здесь порядок выбора важен.
 
 <details>
-<summary>CategorySelection: тёмная тема и мобильные компоновки</summary>
+<summary>Показать PHP-пример создания CAPTCHA с последовательностью значков</summary>
 
-Тёмная тема, настольная компоновка:
+```php
+<?php
 
-<img src="docs/images/examples/category-selection-dark-desktop.png" alt="Интерфейс CategorySelection в тёмной теме, настольная компоновка" width="720">
+declare(strict_types=1);
 
-Светлая тема, мобильная компоновка:
+use Yaleksandr\HumanGate\Challenge\ChallengeKind;
+use Yaleksandr\HumanGate\Challenge\Policy;
+use Yaleksandr\HumanGate\Challenge\Purpose;
+use Yaleksandr\HumanGate\ChallengeService;
+use Yaleksandr\HumanGate\Clock\SystemClock;
+use Yaleksandr\HumanGate\IconSequence\IconSequenceStrategy;
+use Yaleksandr\HumanGate\Session\ActiveNativeSessionScope;
+use Yaleksandr\HumanGate\Session\NativeSessionChallengeStore;
 
-<img src="docs/images/examples/category-selection-light-mobile.png" alt="Интерфейс CategorySelection в светлой теме, мобильная компоновка" width="360">
+require 'vendor/autoload.php';
 
-Тёмная тема, мобильная компоновка:
+if (!session_start()) {
+    throw new RuntimeException('Не удалось открыть сессию PHP.');
+}
 
-<img src="docs/images/examples/category-selection-dark-mobile.png" alt="Интерфейс CategorySelection в тёмной теме, мобильная компоновка" width="360">
+$service = new ChallengeService(
+    new NativeSessionChallengeStore(ActiveNativeSessionScope::capture()),
+    new Policy(),
+    new SystemClock(),
+    new IconSequenceStrategy(),
+);
+
+$result = $service->issue(new Purpose('contact.send'), ChallengeKind::IconSequence);
+if ($result->challenge === null) {
+    throw new RuntimeException('Не удалось создать задание CAPTCHA.');
+}
+
+$id = $result->challenge->id->value();
+$presentation = $result->challenge->presentation;
+```
 
 </details>
 
-### IconSequence
+Для `IconSequence` можно изменить длину последовательности, количество значков, их размер, размытие, шум и поворот. [Описание настроек `IconSequence`](docs/challenges/icon-sequence.md) содержит допустимые значения.
 
-<img src="docs/images/examples/icon-sequence-light-desktop.png" alt="Интерфейс IconSequence в светлой теме: настольная компоновка с изображением задания и вариантами выбора" width="720">
+Срок действия любого задания настраивается через [`Policy::ttlSeconds`](docs/reference/api.md#policy); по умолчанию это 180 секунд. Создание проверки, отправка ответа и его проверка выполняются в разных запросах. [Руководство по интеграции](docs/guides/integration.md) показывает полный порядок работы, включая [`ChallengeService::verify()`](docs/reference/api.md#verify).
+
+Human Gate отвечает за создание, проверку и хранение заданий. Оформление, передача данных в браузер и обработка действий пользователя остаются на стороне приложения, поэтому библиотека не навязывает дополнительные зависимости для интерфейса.
+
+## Примеры оформления
+
+Ниже показан один из вариантов интерфейса для трёх видов CAPTCHA. Это примеры оформления приложения, а не готовые виджеты библиотеки.
+
+### Текстовая CAPTCHA
+
+<img src="docs/images/examples/text-image-light-desktop.png" alt="Текстовая CAPTCHA в светлой теме на компьютере" width="720">
 
 <details>
-<summary>IconSequence: тёмная тема и мобильные компоновки</summary>
+<summary>Другие варианты: тёмная тема и мобильный экран</summary>
 
-Тёмная тема, настольная компоновка:
+Тёмная тема на компьютере:
 
-<img src="docs/images/examples/icon-sequence-dark-desktop.png" alt="Интерфейс IconSequence в тёмной теме, настольная компоновка" width="720">
+<img src="docs/images/examples/text-image-dark-desktop.png" alt="Текстовая CAPTCHA в тёмной теме на компьютере" width="720">
 
-Светлая тема, мобильная компоновка:
+Светлая тема на телефоне:
 
-<img src="docs/images/examples/icon-sequence-light-mobile.png" alt="Интерфейс IconSequence в светлой теме, мобильная компоновка" width="360">
+<img src="docs/images/examples/text-image-light-mobile.png" alt="Текстовая CAPTCHA в светлой теме на телефоне" width="360">
 
-Тёмная тема, мобильная компоновка:
+Тёмная тема на телефоне:
 
-<img src="docs/images/examples/icon-sequence-dark-mobile.png" alt="Интерфейс IconSequence в тёмной теме, мобильная компоновка" width="360">
+<img src="docs/images/examples/text-image-dark-mobile.png" alt="Текстовая CAPTCHA в тёмной теме на телефоне" width="360">
 
 </details>
 
-## Жизненный цикл
+### Выбор карточек по категории
 
-По умолчанию проверка действует 180 секунд, а третий неверный ответ исчерпывает попытки. Успешная проверка потребляет задание; повтор при сохранённой терминальной записи возвращает `AlreadyConsumed`. После удаления записи старый ID возвращает `NotFound`. [Policy, замена, истечение срока и хранение записей](docs/reference/lifecycle.md).
+<img src="docs/images/examples/category-selection-light-desktop.png" alt="CAPTCHA с выбором карточек в светлой теме на компьютере" width="720">
+
+<details>
+<summary>Другие варианты: тёмная тема и мобильный экран</summary>
+
+Тёмная тема на компьютере:
+
+<img src="docs/images/examples/category-selection-dark-desktop.png" alt="CAPTCHA с выбором карточек в тёмной теме на компьютере" width="720">
+
+Светлая тема на телефоне:
+
+<img src="docs/images/examples/category-selection-light-mobile.png" alt="CAPTCHA с выбором карточек в светлой теме на телефоне" width="360">
+
+Тёмная тема на телефоне:
+
+<img src="docs/images/examples/category-selection-dark-mobile.png" alt="CAPTCHA с выбором карточек в тёмной теме на телефоне" width="360">
+
+</details>
+
+### Повторение порядка значков
+
+<img src="docs/images/examples/icon-sequence-light-desktop.png" alt="CAPTCHA с последовательностью значков в светлой теме на компьютере" width="720">
+
+<details>
+<summary>Другие варианты: тёмная тема и мобильный экран</summary>
+
+Тёмная тема на компьютере:
+
+<img src="docs/images/examples/icon-sequence-dark-desktop.png" alt="CAPTCHA с последовательностью значков в тёмной теме на компьютере" width="720">
+
+Светлая тема на телефоне:
+
+<img src="docs/images/examples/icon-sequence-light-mobile.png" alt="CAPTCHA с последовательностью значков в светлой теме на телефоне" width="360">
+
+Тёмная тема на телефоне:
+
+<img src="docs/images/examples/icon-sequence-dark-mobile.png" alt="CAPTCHA с последовательностью значков в тёмной теме на телефоне" width="360">
+
+</details>
+
+Один из примеров использования можно посмотреть на [alexanderyurchenko.ru](https://alexanderyurchenko.ru/). Внешний вид и пользовательский интерфейс на этом сайте разработаны отдельно от библиотеки.
+
+## Жизненный цикл проверки
+
+Задание действительно ограниченное время. По умолчанию оно действует три минуты и допускает до трёх неверных ответов. После правильного ответа задание считается использованным: повторно пройти проверку с тем же идентификатором нельзя. [Подробнее о сроках, попытках и обновлении заданий](docs/reference/lifecycle.md).
 
 ## Безопасность и доступность
 
-CAPTCHA — дополнительный барьер в защите приложения. Авторизация, CSRF, ограничение частоты запросов и защищаемое действие принадлежат приложению. [Модель безопасности](docs/security-model.md) описывает границу доверия и серверное состояние.
+Ответ проверяется на сервере. Приложение самостоятельно отвечает за авторизацию, защиту от поддельных запросов и ограничение частоты обращений. [Подробнее о безопасности](docs/security-model.md).
 
-Для визуальных заданий приложение предоставляет альтернативный путь. Human Gate выдаёт данные, а доступный интерфейс строит приложение. [Рекомендации по доступности](docs/accessibility.md).
-
-## Живой пример
-
-[alexanderyurchenko.ru](https://alexanderyurchenko.ru/) — реальный пример интеграции потребителя. Это пример использования, без утверждения, что на сайте развёрнуты все текущие возможности пакета.
+Для пользователей, которым не подходят визуальные задания, приложение предусматривает альтернативный способ продолжить действие. [Рекомендации по доступности](docs/accessibility.md).
 
 ## Обратная связь
 
-Воспроизводимые ошибки отправляйте в [GitHub Issues](https://github.com/yaleksandr89/human-gate/issues), указывая окружение, шаги и ожидаемое поведение.
+- воспроизводимые ошибки — [GitHub Issues](https://github.com/yaleksandr89/human-gate/issues).
 
 ---
 
-<p align="center">Если пакет полезен, поддержите его ⭐ на <a href="https://github.com/yaleksandr89/human-gate">GitHub</a>.</p>
+<p align="center">
+  Если пакет оказался полезен, поставьте звезду на GitHub — так его будет проще найти другим разработчикам. 🤘
+</p>
