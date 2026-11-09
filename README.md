@@ -2,7 +2,12 @@
 
 [![Source Code](https://img.shields.io/badge/source-yaleksandr89%2Fhuman--gate-blue.svg?style=flat-square)](https://github.com/yaleksandr89/human-gate)
 [![CI](https://github.com/yaleksandr89/human-gate/actions/workflows/ci.yml/badge.svg)](https://github.com/yaleksandr89/human-gate/actions/workflows/ci.yml)
+[![Latest Stable Version](https://img.shields.io/packagist/v/yaleksandr89/human-gate.svg?style=flat-square)](https://packagist.org/packages/yaleksandr89/human-gate)
+[![Total Downloads](https://img.shields.io/packagist/dt/yaleksandr89/human-gate.svg?style=flat-square)](https://packagist.org/packages/yaleksandr89/human-gate)
 [![PHP](https://img.shields.io/badge/PHP-%5E8.4-777BB4.svg?style=flat-square&logo=php&logoColor=white)](https://www.php.net/)
+[![Software License](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat-square)](LICENSE)
+
+![Human Gate — три вида капчи для PHP](docs/images/human-gate-readme-cover.png)
 
 Composer-пакет для создания капчи и проверки ответов в PHP-приложениях. Подходит для форм регистрации, обратной связи и отправки комментариев, где нужно сократить количество автоматических отправок.
 
@@ -255,11 +260,11 @@ $presentation = $result->challenge->presentation;
 
 ## Жизненный цикл капчи
 
-По умолчанию капча действует три минуты, а после третьего неверного ответа попытки заканчиваются. Правильный ответ принимается один раз: повторно пройти проверку с тем же идентификатором нельзя. Подробнее об [истечении срока, попытках и обновлении капчи](docs/reference/lifecycle.md).
+По умолчанию капча действует три минуты. Отдельно установлен лимит неверных ответов: после третьей ошибки проверка завершается, даже если время ещё не истекло. Правильный ответ принимается только один раз. Подробнее о [сроке действия, попытках и обновлении капчи](docs/reference/lifecycle.md).
 
 ## Проверка на сервере
 
-Human Gate хранит данные капчи на сервере и не передаёт браузеру правильный ответ. Проверка привязана к назначению, имеет ограничение по времени и числу попыток. [Подробнее о проверке и хранении данных](docs/security-model.md).
+Human Gate хранит данные проверки на сервере и не передаёт браузеру правильный ответ. Каждая капча связана с конкретной формой или операцией через ключ [`Purpose`](docs/reference/api.md#основные-типы): например, капчу для отправки сообщения нельзя использовать для регистрации. [Подробнее о проверке и хранении данных](docs/security-model.md).
 
 ## Обратная связь
 

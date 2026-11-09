@@ -79,7 +79,7 @@ $presentation = $result->challenge->presentation;
 
 Успешный [`issue()`](../reference/api.md#issue) возвращает `IssueResult` с кодом `LifecycleCode::Issued` и объектом `IssuedChallenge`. В последнем доступны `id`, `kind`, `expiresAt` и `presentation`. Если лимит активных капч достигнут, `challenge` равен `null`, а код результата объясняет причину.
 
-`Purpose` обозначает форму или другое защищаемое действие, например `contact.send`. Его значение выбирается в PHP-коде приложения и не берётся из данных браузера.
+`Purpose` — ключ конкретной формы или операции. Например, `contact.send` используют для отправки сообщения, а `account.register` — для регистрации. При создании и проверке одной капчи передаётся одинаковый ключ. Его указывают в PHP-коде приложения, а не получают из браузера.
 
 Без явного второго аргумента `issue()` создаёт текстовую капчу. Для выбора карточек и последовательности значков указываются соответственно `ChallengeKind::CategorySelection` и `ChallengeKind::IconSequence`.
 
@@ -183,7 +183,7 @@ function replaceCategoryChallenge(ChallengeId $oldId): IssueResult
 | `Expired` | Время действия капчи истекло |
 | `AlreadyConsumed`, `Replaced` | Идентификатор больше не подходит для проверки |
 | `NotFound` | Капча не найдена или её запись уже удалена |
-| `PurposeMismatch` | Капча относится к другому назначению |
+| `PurposeMismatch` | Капча создана для другой формы или операции (не совпал `Purpose`) |
 
 `issue()` и `replace()` возвращают `IssueResult`, а `verify()` возвращает `VerificationCode`. Часть названий кодов совпадает, но тип результата зависит от вызванного метода. Полные сигнатуры приведены в [справочнике API](../reference/api.md).
 
