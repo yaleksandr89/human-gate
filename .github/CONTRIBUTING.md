@@ -1,5 +1,11 @@
 # Участие в разработке
 
+## Выберите язык
+
+| Русский | English | Español | 中文 | Français | Deutsch |
+|---|---|---|---|---|---|
+| **Выбран** | [English](https://github.com/yaleksandr89/human-gate/blob/master/docs/contributing/CONTRIBUTING_en.md) | [Español](https://github.com/yaleksandr89/human-gate/blob/master/docs/contributing/CONTRIBUTING_es.md) | [中文](https://github.com/yaleksandr89/human-gate/blob/master/docs/contributing/CONTRIBUTING_zh.md) | [Français](https://github.com/yaleksandr89/human-gate/blob/master/docs/contributing/CONTRIBUTING_fr.md) | [Deutsch](https://github.com/yaleksandr89/human-gate/blob/master/docs/contributing/CONTRIBUTING_de.md) |
+
 Спасибо за желание улучшить Human Gate. Этот Composer-пакет создаёт и проверяет три вида капчи на PHP: `TextImage`, `CategorySelection` и `IconSequence`. Предложения и исправления приветствуются, если они помогают сделать публичный API понятнее, а работу капчи — надёжнее.
 
 ## Перед началом

@@ -1,5 +1,11 @@
 # Политика безопасности
 
+## Выберите язык
+
+| Русский | English | Español | 中文 | Français | Deutsch |
+|---|---|---|---|---|---|
+| **Выбран** | [English](https://github.com/yaleksandr89/human-gate/blob/master/docs/security/SECURITY_en.md) | [Español](https://github.com/yaleksandr89/human-gate/blob/master/docs/security/SECURITY_es.md) | [中文](https://github.com/yaleksandr89/human-gate/blob/master/docs/security/SECURITY_zh.md) | [Français](https://github.com/yaleksandr89/human-gate/blob/master/docs/security/SECURITY_fr.md) | [Deutsch](https://github.com/yaleksandr89/human-gate/blob/master/docs/security/SECURITY_de.md) |
+
 ## Поддерживаемые версии
 
 Исправления безопасности выпускаются для актуальной стабильной версии Human Gate в линейке `1.x`.

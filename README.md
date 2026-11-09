@@ -9,6 +9,12 @@
 
 ![Human Gate — три вида капчи для PHP](docs/images/human-gate-readme-cover.png)
 
+## Выберите язык
+
+| Русский | English | Español | 中文 | Français | Deutsch |
+|---|---|---|---|---|---|
+| **Выбран** | [English](docs/readme/README_en.md) | [Español](docs/readme/README_es.md) | [中文](docs/readme/README_zh.md) | [Français](docs/readme/README_fr.md) | [Deutsch](docs/readme/README_de.md) |
+
 Composer-пакет для создания капчи и проверки ответов в PHP-приложениях. Подходит для форм регистрации, обратной связи и отправки комментариев, где нужно сократить количество автоматических отправок.
 
 Капча создаётся и проверяется на сервере без обращения к внешним сервисам. Пакет можно использовать с любым PHP-фреймворком или без него.
