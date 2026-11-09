@@ -1,0 +1,98 @@
+name: Bug report / Сообщить об ошибке
+description: Report a reproducible problem with Human Gate / Сообщить о воспроизводимой ошибке Human Gate
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Спасибо за сообщение об ошибке. / Thank you for reporting a bug.
+
+        Не публикуйте реальные данные PHP-сессий, правильные ответы, персональную информацию или способ обхода капчи. Для уязвимостей используйте раздел Security. / Do not publish real PHP session data, correct answers, personal information, or CAPTCHA bypass details. Use Security for vulnerabilities.
+
+  - type: dropdown
+    id: challenge-kind
+    attributes:
+      label: Вид капчи / CAPTCHA type
+      options:
+        - TextImage
+        - CategorySelection
+        - IconSequence
+        - Общая логика или хранилище / Shared logic or storage
+        - Документация / Documentation
+    validations:
+      required: true
+
+  - type: dropdown
+    id: affected-area
+    attributes:
+      label: Затронутая область / Affected area
+      options:
+        - Создание капчи / Issue
+        - Проверка ответа / Verify
+        - Обновление капчи / Replace
+        - Срок действия или попытки / Expiry or attempts
+        - Создание изображения / Rendering
+        - PHP-сессия или хранилище / PHP session or storage
+        - Документация или пример / Documentation or example
+        - Другое / Other
+    validations:
+      required: true
+
+  - type: input
+    id: package-version
+    attributes:
+      label: Версия пакета или SHA / Package version or SHA
+      placeholder: "1.x.y / abc1234"
+    validations:
+      required: true
+
+  - type: input
+    id: php-version
+    attributes:
+      label: Версия PHP / PHP version
+      placeholder: "8.4.x / 8.5.x"
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Окружение / Environment
+      description: Укажите существенные сведения, например поддержку GD/FreeType, фреймворк или способ хранения капчи. / Include relevant GD/FreeType support, framework, or CAPTCHA storage details.
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Шаги воспроизведения / Reproduction steps
+      description: Приведите минимальный пример с искусственными данными. / Provide a minimal example using synthetic data.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Ожидаемый результат / Expected result
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Фактический результат / Actual result
+    validations:
+      required: true
+
+  - type: textarea
+    id: sanitized-details
+    attributes:
+      label: Обезличенные детали / Sanitized details
+      description: Допустимы очищенные сообщения об ошибках и краткий фрагмент кода без реальных ответов, сессий и персональных данных. / Include sanitized errors or minimal code without real answers, sessions, or personal data.
+      render: text
+
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Подтверждения / Confirmations
+      options:
+        - label: Я проверил(а), что такой ошибки ещё нет в Issues. / I checked existing Issues for duplicates.
+          required: true
+        - label: Я удалил(а) секреты, реальные данные сессий и пользователей. / I removed secrets, real session data, and user information.
+          required: true
