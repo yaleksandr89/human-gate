@@ -1,0 +1,59 @@
+name: Feature request / Предложить улучшение
+description: Suggest an improvement to Human Gate / Предложить улучшение Human Gate
+title: "[Feature]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Спасибо за предложение. Сначала опишите задачу, которую хотите решить, а не только способ реализации. / Thank you for your suggestion. Describe the problem you want to solve, not only the implementation.
+
+  - type: dropdown
+    id: affected-area
+    attributes:
+      label: К какой части относится предложение / Affected area
+      options:
+        - TextImage
+        - CategorySelection
+        - IconSequence
+        - Жизненный цикл и проверка ответов / Lifecycle and verification
+        - Хранилище и PHP-сессии / Storage and PHP sessions
+        - Документация / Documentation
+        - Другое / Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Какую проблему нужно решить / Problem or use case
+      description: Объясните сценарий и зачем пользователю пакета это нужно. / Explain the scenario and why package users need it.
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Предлагаемое поведение / Proposed behavior
+      description: Опишите ожидаемый результат без привязки к конкретной архитектуре. / Describe the desired result without requiring a specific architecture.
+    validations:
+      required: true
+
+  - type: textarea
+    id: api-impact
+    attributes:
+      label: Влияние на API / Public API impact
+      description: Укажите, нужно ли менять методы, параметры, форматы ответов или существующие гарантии. / Note any changes to methods, options, answer formats, or existing guarantees.
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Рассмотренные варианты / Alternatives considered
+      description: Какие другие решения или обходные пути вы рассматривали? / What other solutions or workarounds have you considered?
+
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Подтверждение / Confirmation
+      options:
+        - label: Я проверил(а) существующие Issues на похожие предложения. / I checked existing Issues for similar requests.
+          required: true

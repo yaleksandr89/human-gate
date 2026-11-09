@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Проблема безопасности / Security issue
+    url: https://github.com/yaleksandr89/human-gate/security/policy
+    about: Не публикуйте способы обхода капчи, реальные данные сессий и другие чувствительные сведения. Ознакомьтесь с политикой безопасности. / Do not publish CAPTCHA bypass details, real session data, or other sensitive information. Read the security policy.
