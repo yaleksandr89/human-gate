@@ -6,9 +6,9 @@
 
 ## ChallengeService
 
-В конструктор передаются хранилище, общие настройки, часы и стратегии капчи:
+В конструктор передаются хранилище, общие настройки, источник текущего времени и стратегии капчи:
 
-```text
+```php
 public function __construct(
     ChallengeStore $store,
     Policy $policy,
@@ -21,7 +21,7 @@ public function __construct(
 
 ### issue()
 
-```text
+```php
 public function issue(
     Purpose $purpose,
     ChallengeKind $kind = ChallengeKind::TextImage,
@@ -34,7 +34,7 @@ public function issue(
 
 ### replace()
 
-```text
+```php
 public function replace(
     ChallengeId $oldId,
     Purpose $purpose,
@@ -48,7 +48,7 @@ public function replace(
 
 ### verify()
 
-```text
+```php
 public function verify(
     ChallengeId $id,
     Purpose $purpose,
@@ -119,7 +119,7 @@ $policy = new Policy(
 
 Основные классы находятся в `TextImage\`:
 
-```text
+```php
 TextImageStrategy::__construct(
     TextImageRenderer $renderer,
     TextImageAnswerOptions $answerOptions = new TextImageAnswerOptions(),
@@ -145,7 +145,7 @@ TextImageRenderOptions::__construct(
 
 Основные классы находятся в `CategorySelection\`:
 
-```text
+```php
 CategorySelectionCategory::__construct(string $label, array $items)
 CategorySelectionOptions::__construct(int $cardCount = 6, int $targetCount = 2)
 CategorySelectionStrategy::__construct(
@@ -162,7 +162,7 @@ CategorySelectionStrategy::__construct(
 
 Основные классы находятся в `IconSequence\`:
 
-```text
+```php
 IconSequenceStrategy::__construct(
     IconSequenceOptions $options = new IconSequenceOptions(),
     IconSequenceRenderOptions $renderOptions = new IconSequenceRenderOptions(),
@@ -179,7 +179,7 @@ IconSequenceRenderOptions::__construct(
 )
 ```
 
-Длина последовательности: от 3 до 6 значков. Число вариантов: не меньше `sequenceLength + 2` и не больше `12`. Размер значков: 72–96 пикселей; шум: 0–150; поворот: 0–90 градусов. `IconSequenceBlur` принимает `None`, `Light`, `Standard`, `Strong`.
+Длина последовательности: от 3 до 6 значков. Число вариантов: на два больше длины последовательности или выше, но не более `12` (например, при четырёх значках допускается от шести до двенадцати вариантов). Размер значков: 72–96 пикселей; шум: 0–150; поворот: 0–90 градусов. `IconSequenceBlur` принимает `None`, `Light`, `Standard`, `Strong`.
 
 Ответ передаётся в порядке выбора значков. Пример настройки и правила ответа — в [руководстве по последовательности значков](../challenges/icon-sequence.md).
 
@@ -205,7 +205,7 @@ IconSequenceRenderOptions::__construct(
 | --- | --- |
 | `Session\ActiveNativeSessionScope::capture()` | Получает контекст открытой сессии PHP |
 | `Session\NativeSessionChallengeStore` | Хранит данные капчи в сессии PHP |
-| `Clock\SystemClock` | Возвращает текущее Unix-время через `now(): int` |
+| `Clock\SystemClock` | Источник текущего времени: `now(): int` возвращает секунды Unix-времени |
 
 `NativeSessionChallengeStore` принимает `ActiveNativeSessionScope`. Для стандартного варианта используется обработчик сессий `files` и формат сериализации `php` или `php_serialize`. Сессию сначала открывает приложение через `session_start()`. После изменения данных адаптер закрывает её. Подробности — в [интеграции](../guides/integration.md#хранение-в-сессии-php).
 
@@ -225,8 +225,8 @@ IconSequenceRenderOptions::__construct(
 
 ## Расширение пакета
 
-При необходимости можно добавить собственное хранилище, часы или стратегию капчи через `Port\ChallengeStore`, `Port\Clock`, `Port\ChallengeStrategy` и `Port\TextImageRenderer`.
+При необходимости можно добавить собственное хранилище, источник времени или стратегию капчи через `Port\ChallengeStore`, `Port\Clock`, `Port\ChallengeStrategy` и `Port\TextImageRenderer`.
 
 `ChallengeStore::atomic()` должен выполнять изменение данных без конфликтов между одновременными запросами и подтверждать сохранение до возврата результата. Если сохранение завершилось ошибкой, операция не должна возвращать успешную проверку.
 
-`Clock::now()` возвращает Unix-время в секундах. Методы `ChallengeStrategy::kind()`, `prepare()` и `verify()` задают вид, создание и проверку капчи; `TextImageRenderer::render()` формирует `ImagePresentation`. Для обычного подключения используются готовые реализации, показанные в [руководстве по интеграции](../guides/integration.md).
+`Clock::now()` возвращает текущее Unix-время в секундах для расчёта срока действия капчи. Это источник времени, а не таймер с обратным отсчётом. Методы `ChallengeStrategy::kind()`, `prepare()` и `verify()` задают вид, создание и проверку капчи; `TextImageRenderer::render()` формирует `ImagePresentation`. Для обычного подключения используются готовые реализации, показанные в [руководстве по интеграции](../guides/integration.md).
