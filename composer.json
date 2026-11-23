@@ -1,14 +1,40 @@
 {
     "name": "yaleksandr89/human-gate",
     "description": "Lightweight first-party CAPTCHA and anti-bot challenges for PHP.",
-    "type": "library",
-    "license": "MIT",
     "homepage": "https://github.com/yaleksandr89/human-gate",
-    "keywords": ["captcha", "anti-bot", "security", "challenge", "spam-protection"],
+    "keywords": [
+        "captcha",
+        "anti-bot",
+        "security",
+        "challenge",
+        "spam-protection"
+    ],
+    "authors": [
+        {
+            "name": "Александр Юрченко",
+            "email": "y.aleksandr89@yandex.ru",
+            "homepage": "https://github.com/yaleksandr89",
+            "role": "Developer"
+        }
+    ],
     "support": {
         "issues": "https://github.com/yaleksandr89/human-gate/issues",
-        "source": "https://github.com/yaleksandr89/human-gate"
+        "source": "https://github.com/yaleksandr89/human-gate",
+        "forum": "https://github.com/yaleksandr89/human-gate/discussions",
+        "security": "https://github.com/yaleksandr89/human-gate/security/policy"
     },
+    "funding": [
+        {
+            "type": "other",
+            "url": "https://boosty.to/backendbezpafosa"
+        },
+        {
+            "type": "other",
+            "url": "https://sponsr.ru/backendbezpafosa/"
+        }
+    ],
+    "type": "library",
+    "license": "MIT",
     "require": {
         "php": "^8.4",
         "ext-gd": "*"
