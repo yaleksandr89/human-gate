@@ -268,17 +268,13 @@ $presentation = $result->challenge->presentation;
 
 ```mermaid
 flowchart TD
-    A["应用创建验证码<br/>ChallengeService::issue()"] --> B["策略准备展示与校验数据"]
-    A -->|Exception| J
-    B --> C["ChallengeStore：原子保存"]
-    C -->|Issued| D["应用展示验证码并接收答案"]
-    C -->|CapacityExceeded| J
-    D --> E["ChallengeService::verify()"]
-    E --> F["原子校验状态与答案"]
-    F --> G["Accepted：验证码已使用"]
-    G --> H["应用继续处理表单"]
-    F --> I["Incorrect：已记录错误尝试"]
-    F --> J["其他结果或异常：处理拒绝"]
+    A["创建验证码 — issue()"] --> B["生成并保存"]
+    B -->|Issued| C["展示验证码并接收答案"]
+    C --> D["校验 — verify()"]
+    D -->|Accepted| E["继续处理表单"]
+    D -->|Incorrect| C
+    B -->|CapacityExceeded / Exception| F["处理拒绝"]
+    D -->|其他结果 / Exception| F
 ```
 
 应用选择策略、在服务端设定 `Purpose`，并负责 HTTP、界面及请求频率限制。`ChallengeService` 管理验证码的生命周期，`ChallengeStore` 保存状态并保证操作的原子性。浏览器接收标识符及展示数据，校验在服务器上完成。
