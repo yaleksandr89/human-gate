@@ -9,8 +9,8 @@ use Yaleksandr\HumanGate\Challenge\ChallengeId;
 use Yaleksandr\HumanGate\Challenge\Purpose;
 
 /**
- * EN: Mutable only inside a ChallengeStore atomic scope; records themselves are immutable.
  * RU: Контейнер можно изменять только внутри атомарной области ChallengeStore; сами записи неизменяемы.
+ * EN: Mutable only inside a ChallengeStore atomic scope; records themselves are immutable.
  */
 final class ChallengeBucket
 {
@@ -79,8 +79,8 @@ final class ChallengeBucket
     }
 
     /**
-     * EN: Copies value state without sharing mutable storage with the source.
      * RU: Копирует состояние по значению, не разделяя изменяемое хранилище с источником.
+     * EN: Copies value state without sharing mutable storage with the source.
      */
     public function copyFrom(self $source): void
     {

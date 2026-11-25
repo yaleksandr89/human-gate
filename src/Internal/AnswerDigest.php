@@ -13,8 +13,8 @@ use Yaleksandr\HumanGate\Challenge\Purpose;
 final class AnswerDigest
 {
     /**
-     * EN: The challenge ID separates proofs, but disclosure of a proof still permits offline guessing of a short answer.
      * RU: ID задачи разделяет доказательства, но раскрытие доказательства всё равно позволяет перебирать короткий ответ без обращения к серверу.
+     * EN: The challenge ID separates proofs, but disclosure of a proof still permits offline guessing of a short answer.
      */
     public static function forAnswer(ChallengeId $id, Purpose $purpose, ChallengeKind $kind, string $canonicalAnswer): string
     {

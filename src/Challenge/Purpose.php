@@ -7,8 +7,8 @@ namespace Yaleksandr\HumanGate\Challenge;
 use InvalidArgumentException;
 
 /**
- * EN: A logical purpose chosen by the server; client input is never an authoritative source for this value.
  * RU: Логическое назначение, задаваемое сервером; клиентский ввод не является доверенным источником этого значения.
+ * EN: A logical purpose chosen by the server; client input is never an authoritative source for this value.
  */
 final readonly class Purpose
 {

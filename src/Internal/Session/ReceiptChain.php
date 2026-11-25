@@ -10,8 +10,8 @@ use Yaleksandr\HumanGate\Session\NativeSessionStorageFailureReason;
 use Yaleksandr\HumanGate\State\ChallengeBucket;
 
 /**
- * EN: Validates retained writer ancestry and proves participation in a verified native write.
  * RU: Проверяет цепочку сохранённых квитанций и подтверждает участие автора в проверенной записи сессии.
+ * EN: Validates retained writer ancestry and proves participation in a verified native write.
  */
 final class ReceiptChain
 {

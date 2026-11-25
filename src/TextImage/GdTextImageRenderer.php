@@ -13,8 +13,8 @@ use Yaleksandr\HumanGate\Port\TextImageRenderer;
 use Yaleksandr\HumanGate\Presentation\ImagePresentation;
 
 /**
- * EN: Renders the configurable TextImage profile using the package-owned Noto Sans font.
  * RU: Создаёт изображение по настраиваемому профилю TextImage со шрифтом Noto Sans из пакета.
+ * EN: Renders the configurable TextImage profile using the package-owned Noto Sans font.
  */
 final class GdTextImageRenderer implements TextImageRenderer
 {
@@ -36,8 +36,8 @@ final class GdTextImageRenderer implements TextImageRenderer
     }
 
     /**
-     * EN: Renders only a canonical six-character answer; random-source failures propagate.
      * RU: Отрисовывает только канонический ответ из шести символов; ошибки источника случайности проходят без замены.
+     * EN: Renders only a canonical six-character answer; random-source failures propagate.
      *
      * @throws RandomException
      */
@@ -129,8 +129,8 @@ final class GdTextImageRenderer implements TextImageRenderer
             $minY = min($bbox[1], $bbox[3], $bbox[5], $bbox[7]);
             $maxY = max($bbox[1], $bbox[3], $bbox[5], $bbox[7]);
 
-            // EN: Keep negative glyph bearings inside the scaled left guard.
             // RU: Удерживаем отрицательный вынос глифа внутри масштабированной левой границы.
+            // EN: Keep negative glyph bearings inside the scaled left guard.
             $x = max($x, $this->scaled(6) - $minX);
 
             $baselineMin = max($this->scaled(41), $this->scaled(10) - $minY);

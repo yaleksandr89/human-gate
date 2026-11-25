@@ -26,8 +26,8 @@ final readonly class CategorySelectionStrategy implements ChallengeStrategy
     private array $categories;
 
     /**
-     * EN: Validates the supplied array as a list of configured categories.
      * RU: Проверяет переданный массив как список настроенных категорий.
+     * EN: Validates the supplied array as a list of configured categories.
      *
      * @param array<array-key, mixed> $categories
      */

@@ -12,8 +12,8 @@ final readonly class IconSequencePresentation implements Presentation
     public array $choices;
 
     /**
-     * EN: Validates unique choice tokens and images without exposing target membership or order.
      * RU: Проверяет уникальность токенов и изображений вариантов, не раскрывая состав или порядок целевой последовательности.
+     * EN: Validates unique choice tokens and images without exposing target membership or order.
      *
      * @param array<array-key, mixed> $choices
      */

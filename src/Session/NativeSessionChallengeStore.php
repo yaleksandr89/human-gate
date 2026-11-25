@@ -11,8 +11,8 @@ use Yaleksandr\HumanGate\Internal\Session\SessionBucketCodec;
 use Yaleksandr\HumanGate\Port\ChallengeStore;
 
 /**
- * EN: Stores one challenge bucket in an already active native files session.
  * RU: Хранит контейнер задач в уже активной файловой сессии PHP.
+ * EN: Stores one challenge bucket in an already active native files session.
  */
 final class NativeSessionChallengeStore implements ChallengeStore
 {
