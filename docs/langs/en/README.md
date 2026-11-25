@@ -268,17 +268,13 @@ These examples show CAPTCHA creation. The application uses the returned identifi
 
 ```mermaid
 flowchart TD
-    A["Application issues a CAPTCHA<br/>ChallengeService::issue()"] --> B["Strategy prepares presentation and verification data"]
-    A -->|Exception| J
-    B --> C["ChallengeStore: atomic persistence"]
-    C -->|Issued| D["Application displays CAPTCHA and receives answer"]
-    C -->|CapacityExceeded| J
-    D --> E["ChallengeService::verify()"]
-    E --> F["Atomic state and answer verification"]
-    F --> G["Accepted: CAPTCHA consumed"]
-    G --> H["Application continues form processing"]
-    F --> I["Incorrect: wrong attempt recorded"]
-    F --> J["Other result or exception: handle rejection"]
+    A["Issue CAPTCHA — issue()"] --> B["Generate and store"]
+    B -->|Issued| C["Display and receive answer"]
+    C --> D["Verify — verify()"]
+    D -->|Accepted| E["Continue form processing"]
+    D -->|Incorrect| C
+    B -->|CapacityExceeded / Exception| F["Handle rejection"]
+    D -->|Other result / Exception| F
 ```
 
 The application selects a strategy, sets the server-side `Purpose`, and handles HTTP, the interface and rate limiting. `ChallengeService` manages the CAPTCHA lifecycle, while `ChallengeStore` persists state and ensures atomic operations. The browser receives the identifier and presentation data; verification takes place on the server.

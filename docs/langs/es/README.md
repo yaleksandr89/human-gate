@@ -268,17 +268,13 @@ Estos ejemplos muestran cómo crear un captcha. La aplicación usa el identifica
 
 ```mermaid
 flowchart TD
-    A["La aplicación crea un captcha<br/>ChallengeService::issue()"] --> B["La estrategia prepara los datos de presentación y verificación"]
-    A -->|Exception| J
-    B --> C["ChallengeStore: persistencia atómica"]
-    C -->|Issued| D["La aplicación muestra el captcha y recibe la respuesta"]
-    C -->|CapacityExceeded| J
-    D --> E["ChallengeService::verify()"]
-    E --> F["Verificación atómica del estado y la respuesta"]
-    F --> G["Accepted: captcha consumido"]
-    G --> H["La aplicación continúa procesando el formulario"]
-    F --> I["Incorrect: intento incorrecto registrado"]
-    F --> J["Otro resultado o excepción: gestionar el rechazo"]
+    A["Crear captcha — issue()"] --> B["Generar y guardar"]
+    B -->|Issued| C["Mostrar y recibir respuesta"]
+    C --> D["Verificar — verify()"]
+    D -->|Accepted| E["Continuar el procesamiento del formulario"]
+    D -->|Incorrect| C
+    B -->|CapacityExceeded / Exception| F["Gestionar el rechazo"]
+    D -->|Otro resultado / Exception| F
 ```
 
 La aplicación elige una estrategia, establece el `Purpose` en el servidor y se encarga de HTTP, la interfaz y la limitación de frecuencia. `ChallengeService` gestiona el ciclo de vida del captcha y `ChallengeStore` conserva el estado y garantiza la atomicidad de las operaciones. El navegador recibe el identificador y los datos de presentación; la verificación se realiza en el servidor.

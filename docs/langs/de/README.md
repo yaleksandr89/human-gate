@@ -268,17 +268,13 @@ Diese Beispiele zeigen die Erstellung eines CAPTCHAs. Die Anwendung verwendet di
 
 ```mermaid
 flowchart TD
-    A["Die Anwendung erstellt ein CAPTCHA<br/>ChallengeService::issue()"] --> B["Die Strategie bereitet Anzeige- und Prüfdaten vor"]
-    A -->|Exception| J
-    B --> C["ChallengeStore: atomare Speicherung"]
-    C -->|Issued| D["Die Anwendung zeigt das CAPTCHA an und empfängt die Antwort"]
-    C -->|CapacityExceeded| J
-    D --> E["ChallengeService::verify()"]
-    E --> F["Atomare Prüfung von Zustand und Antwort"]
-    F --> G["Accepted: CAPTCHA verbraucht"]
-    G --> H["Die Anwendung verarbeitet das Formular weiter"]
-    F --> I["Incorrect: Fehlversuch erfasst"]
-    F --> J["Anderes Ergebnis oder Ausnahme: Ablehnung behandeln"]
+    A["CAPTCHA erstellen — issue()"] --> B["Erzeugen und speichern"]
+    B -->|Issued| C["Anzeigen und Antwort empfangen"]
+    C --> D["Prüfen — verify()"]
+    D -->|Accepted| E["Formular weiterverarbeiten"]
+    D -->|Incorrect| C
+    B -->|CapacityExceeded / Exception| F["Ablehnung behandeln"]
+    D -->|Anderes Ergebnis / Exception| F
 ```
 
 Die Anwendung wählt eine Strategie, legt den serverseitigen `Purpose` fest und übernimmt HTTP, Benutzeroberfläche und Anfragelimits. `ChallengeService` verwaltet den CAPTCHA-Lebenszyklus, während `ChallengeStore` den Zustand speichert und atomare Operationen sicherstellt. Der Browser erhält die Kennung und die Anzeigedaten; die Prüfung erfolgt auf dem Server.
