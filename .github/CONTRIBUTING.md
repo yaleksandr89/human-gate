@@ -4,7 +4,7 @@
 
 | Русский | English | Español | 中文 | Français | Deutsch |
 |---|---|---|---|---|---|
-| **Выбран** | [English](https://github.com/yaleksandr89/human-gate/blob/master/docs/contributing/CONTRIBUTING_en.md) | [Español](https://github.com/yaleksandr89/human-gate/blob/master/docs/contributing/CONTRIBUTING_es.md) | [中文](https://github.com/yaleksandr89/human-gate/blob/master/docs/contributing/CONTRIBUTING_zh.md) | [Français](https://github.com/yaleksandr89/human-gate/blob/master/docs/contributing/CONTRIBUTING_fr.md) | [Deutsch](https://github.com/yaleksandr89/human-gate/blob/master/docs/contributing/CONTRIBUTING_de.md) |
+| **Выбран** | [English](https://github.com/yaleksandr89/human-gate/blob/master/docs/langs/en/CONTRIBUTING.md) | [Español](https://github.com/yaleksandr89/human-gate/blob/master/docs/langs/es/CONTRIBUTING.md) | [中文](https://github.com/yaleksandr89/human-gate/blob/master/docs/langs/zh/CONTRIBUTING.md) | [Français](https://github.com/yaleksandr89/human-gate/blob/master/docs/langs/fr/CONTRIBUTING.md) | [Deutsch](https://github.com/yaleksandr89/human-gate/blob/master/docs/langs/de/CONTRIBUTING.md) |
 
 Спасибо за желание улучшить Human Gate. Этот Composer-пакет создаёт и проверяет три вида капчи на PHP: `TextImage`, `CategorySelection` и `IconSequence`. Предложения и исправления приветствуются, если они помогают сделать публичный API понятнее, а работу капчи — надёжнее.
 
@@ -20,11 +20,11 @@
 - Пакет работает на `PHP ^8.4`, использует `ext-gd` и не требует сторонних Composer-библиотек во время выполнения.
 - Проверка правильности ответа выполняется на сервере; капча привязана к ключу формы или операции (`Purpose`).
 - После успешного ответа одну и ту же капчу нельзя пройти повторно. Время действия и число неверных попыток ограничены настройками `Policy`.
-- [`TextImage`](https://github.com/yaleksandr89/human-gate/blob/master/docs/challenges/text-image.md) проверяет символы с изображения; [`CategorySelection`](https://github.com/yaleksandr89/human-gate/blob/master/docs/challenges/category-selection.md) принимает выбранные карточки независимо от порядка; [`IconSequence`](https://github.com/yaleksandr89/human-gate/blob/master/docs/challenges/icon-sequence.md) учитывает порядок значков.
+- [`TextImage`](https://github.com/yaleksandr89/human-gate/blob/master/docs/langs/ru/challenges/text-image.md) проверяет символы с изображения; [`CategorySelection`](https://github.com/yaleksandr89/human-gate/blob/master/docs/langs/ru/challenges/category-selection.md) принимает выбранные карточки независимо от порядка; [`IconSequence`](https://github.com/yaleksandr89/human-gate/blob/master/docs/langs/ru/challenges/icon-sequence.md) учитывает порядок значков.
 - Пакет создаёт данные капчи и проверяет ответы; оформление HTML-интерфейса остаётся за приложением.
 - Изменения должны соответствовать существующей архитектуре и не добавлять зависимости или новые публичные возможности без обоснованной необходимости.
 
-Детали использования и сигнатуры методов приведены в [справочнике API](https://github.com/yaleksandr89/human-gate/blob/master/docs/reference/api.md).
+Детали использования и сигнатуры методов приведены в [справочнике API](https://github.com/yaleksandr89/human-gate/blob/master/docs/langs/ru/reference/api.md).
 
 ## Ветки и коммиты
 

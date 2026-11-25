@@ -7,8 +7,8 @@ namespace Yaleksandr\HumanGate\Presentation;
 use InvalidArgumentException;
 
 /**
- * EN: Labels are plain text; consumers must escape them for their output context. Human Gate does not emit HTML.
  * RU: Подписи являются обычным текстом; приложения должны экранировать их для контекста вывода. Human Gate не выдаёт HTML.
+ * EN: Labels are plain text; consumers must escape them for their output context. Human Gate does not emit HTML.
  */
 final readonly class CategorySelectionCard
 {

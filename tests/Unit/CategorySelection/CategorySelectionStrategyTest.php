@@ -153,8 +153,8 @@ final class CategorySelectionStrategyTest extends TestCase
     {
         $autoload = dirname(__DIR__, 3) . '/vendor/autoload.php';
         foreach (['recover' => 'ok:4', 'exhaust' => 'failed:5', 'bytesFail' => 'source:1', 'intFail' => 'source:0'] as $mode => $expected) {
-            // EN: Namespaced random functions are isolated in a child process and do not affect other tests.
             // RU: Функции случайности в пространстве имён изолированы в дочернем процессе и не влияют на другие тесты.
+            // EN: Namespaced random functions are isolated in a child process and do not affect other tests.
             $script = 'namespace Yaleksandr\\HumanGate\\CategorySelection; '
                 . '$mode = ' . var_export($mode, true) . '; $calls = 0; '
                 . 'function random_int(int $min, int $max): int { global $mode; '

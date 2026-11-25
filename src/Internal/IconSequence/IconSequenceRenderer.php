@@ -20,10 +20,10 @@ final class IconSequenceRenderer
     public function __construct(private readonly IconSequenceRenderOptions $options = new IconSequenceRenderOptions()) {}
 
     /**
-     * EN: Accepts only a list of three to six distinct package icon images.
      * RU: Принимает только список из трёх–шести различных изображений значков пакета.
-     * EN: Random-source failures propagate unchanged.
      * RU: Ошибки источника случайности передаются без изменений.
+     * EN: Accepts only a list of three to six distinct package icon images.
+     * EN: Random-source failures propagate unchanged.
      *
      * @param array<array-key, ImagePresentation> $sequence
      * @throws InvalidArgumentException

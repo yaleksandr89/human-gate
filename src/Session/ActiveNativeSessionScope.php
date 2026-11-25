@@ -7,8 +7,8 @@ namespace Yaleksandr\HumanGate\Session;
 use Yaleksandr\HumanGate\Internal\Session\SessionBucketCodec;
 
 /**
- * EN: Authority for one native files-session commit and one read-only verification reopen.
  * RU: Полномочие на одну фиксацию файловой сессии PHP и одно повторное открытие только для проверки.
+ * EN: Authority for one native files-session commit and one read-only verification reopen.
  */
 final class ActiveNativeSessionScope
 {

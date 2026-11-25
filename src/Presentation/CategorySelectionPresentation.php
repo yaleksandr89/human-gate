@@ -7,8 +7,8 @@ namespace Yaleksandr\HumanGate\Presentation;
 use InvalidArgumentException;
 
 /**
- * EN: The category is plain text; consumers must escape it for their output context. Human Gate does not emit HTML.
  * RU: Категория является обычным текстом; приложения должны экранировать её для контекста вывода. Human Gate не выдаёт HTML.
+ * EN: The category is plain text; consumers must escape it for their output context. Human Gate does not emit HTML.
  */
 final readonly class CategorySelectionPresentation implements Presentation
 {
@@ -16,8 +16,8 @@ final readonly class CategorySelectionPresentation implements Presentation
     public array $cards;
 
     /**
-     * EN: Validates the supplied array as a list of typed cards.
      * RU: Проверяет переданный массив как список типизированных карточек.
+     * EN: Validates the supplied array as a list of typed cards.
      *
      * @param array<array-key, mixed> $cards
      */

@@ -59,8 +59,8 @@ final class NativeSessionFixture
                 try {
                     error_log($exception->getMessage());
                 } catch (Throwable) {
-                    // EN: Reporting failures must not escape destructor fallback and mask a failing test.
                     // RU: Ошибки диагностики не должны выходить из деструктора и скрывать падение теста.
+                    // EN: Reporting failures must not escape destructor fallback and mask a failing test.
                 }
             }
         }

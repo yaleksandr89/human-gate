@@ -24,8 +24,8 @@ final class TextImageAnswerTest extends TestCase
         $autoload = dirname(__DIR__, 4) . '/vendor/autoload.php';
         foreach ([false, true] as $caseSensitive) {
             $alphabet = $caseSensitive ? TextImageAnswer::CASE_SENSITIVE_ALPHABET : TextImageAnswer::CASE_INSENSITIVE_ALPHABET;
-            // EN: The namespaced RNG exists only in this child process; each index is returned six times.
             // RU: RNG в пространстве имён существует только в дочернем процессе; каждый индекс возвращается шесть раз.
+            // EN: The namespaced RNG exists only in this child process; each index is returned six times.
             $script = 'namespace Yaleksandr\\HumanGate\\Internal\\TextImage; '
                 . 'function random_int(int $min, int $max): int { static $calls = 0; '
                 . 'if ($min !== 0 || $max !== ' . (strlen($alphabet) - 1) . ') { throw new \\RuntimeException("Invalid RNG bounds"); } '

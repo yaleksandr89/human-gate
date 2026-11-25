@@ -12,8 +12,8 @@ final readonly class CategorySelectionCategory
     public array $items;
 
     /**
-     * EN: Validates the supplied array as a list of plain-text item labels.
      * RU: Проверяет переданный массив как список текстовых подписей предметов.
+     * EN: Validates the supplied array as a list of plain-text item labels.
      *
      * @param array<array-key, mixed> $items
      */

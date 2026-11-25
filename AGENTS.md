@@ -14,7 +14,7 @@
 package: yaleksandr89/human-gate
 namespace: Yaleksandr\HumanGate\
 PHP support floor: ^8.4
-development target: PHP 8.5
+development target: latest stable PHP (currently 8.6); full-check toolchain on a verified compatible PHP version
 architecture: lightweight hexagonal / Ports & Adapters
 runtime dependencies target: zero third-party Composer runtime libraries
 visual challenges: ext-gd
@@ -245,22 +245,22 @@ Stable package ownership boundary:
 
 DDD/hexagonal/patterns применяй только там, где они снижают реальную сложность. Не создавай interface/factory/strategy/DTO/value object только ради структуры.
 
-## Comments и PHPDoc: EN + RU
+## Comments и PHPDoc: RU + EN
 
 Комментарии и PHPDoc добавлять **только когда они несут информацию**, которую не выражает сам код/native types.
 
 Не комментировать очевидное.
 
-Если в first-party PHP появляется meaningful human-readable comment или PHPDoc prose, он должен иметь **семантический parity на двух языках**, English first, Russian second:
+Если в first-party PHP появляется meaningful human-readable comment или PHPDoc prose, он должен иметь **семантический parity на двух языках**, Russian first, English second:
 
 ```php
 /**
- * EN: Preserves the canonical answer case during rendering.
  * RU: Сохраняет регистр канонического ответа при отрисовке.
+ * EN: Preserves the canonical answer case during rendering.
  */
 ```
 
-Для нескольких смысловых предложений сохраняй тот же порядок парами `EN:` / `RU:`.
+В многострочном блоке сначала все строки `RU:`, затем все строки `EN:`; чередование языков запрещено.
 
 Требования:
 
@@ -276,8 +276,8 @@ DDD/hexagonal/patterns применяй только там, где они сн�
 
 ```php
 /**
- * EN: Returns the canonical payload accepted by the current protocol.
  * RU: Возвращает каноническую нагрузку, принятую текущим протоколом.
+ * EN: Returns the canonical payload accepted by the current protocol.
  *
  * @return array<string, scalar|null>
  */

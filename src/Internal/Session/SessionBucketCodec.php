@@ -19,8 +19,8 @@ use Yaleksandr\HumanGate\State\ChallengeTombstone;
 use Yaleksandr\HumanGate\State\TerminalReason;
 
 /**
- * EN: Strict canonical JSON codec for the package-owned session namespace.
  * RU: Строгий кодек канонического JSON для области сессии, принадлежащей пакету.
+ * EN: Strict canonical JSON codec for the package-owned session namespace.
  */
 final class SessionBucketCodec
 {

@@ -10,8 +10,8 @@ use Yaleksandr\HumanGate\Port\ChallengeStore;
 use Yaleksandr\HumanGate\State\ChallengeBucket;
 
 /**
- * EN: Reference for serialized atomic calls only, not a cross-process locking adapter.
  * RU: Эталон только для последовательных атомарных вызовов, а не адаптер межпроцессных блокировок.
+ * EN: Reference for serialized atomic calls only, not a cross-process locking adapter.
  */
 final class InMemoryChallengeStore implements ChallengeStore
 {

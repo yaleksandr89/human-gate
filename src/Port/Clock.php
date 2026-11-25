@@ -7,8 +7,8 @@ namespace Yaleksandr\HumanGate\Port;
 interface Clock
 {
     /**
-     * EN: Returns Unix epoch seconds.
      * RU: Возвращает Unix-время в секундах.
+     * EN: Returns Unix epoch seconds.
      */
     public function now(): int;
 }

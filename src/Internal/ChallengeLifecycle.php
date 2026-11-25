@@ -22,8 +22,8 @@ use Yaleksandr\HumanGate\State\LifecycleResult;
 use Yaleksandr\HumanGate\State\TerminalReason;
 
 /**
- * EN: Package orchestration: callers must supply a bucket from ChallengeStore::atomic().
  * RU: Оркестрация пакета: вызывающий код обязан передать контейнер состояния из ChallengeStore::atomic().
+ * EN: Package orchestration: callers must supply a bucket from ChallengeStore::atomic().
  */
 final readonly class ChallengeLifecycle
 {
@@ -72,8 +72,8 @@ final readonly class ChallengeLifecycle
     }
 
     /**
-     * EN: Call this method only after the answer has been accepted within the same atomic operation.
      * RU: Вызывайте этот метод только после того, как ответ признан корректным в рамках той же атомарной операции.
+     * EN: Call this method only after the answer has been accepted within the same atomic operation.
      */
     public function consume(ChallengeBucket $bucket, ChallengeId $id, Purpose $purpose): LifecycleResult
     {
@@ -90,8 +90,8 @@ final readonly class ChallengeLifecycle
     }
 
     /**
-     * EN: Replacement generation/rendering must already have succeeded before this transition.
      * RU: Генерация и отрисовка замены должны успешно завершиться до этого перехода.
+     * EN: Replacement generation/rendering must already have succeeded before this transition.
      */
     public function replace(ChallengeBucket $bucket, ChallengeId $oldId, Purpose $purpose, ChallengeId $newId, ChallengeKind $newKind, AnswerProof $proof): LifecycleResult
     {
@@ -138,8 +138,8 @@ final readonly class ChallengeLifecycle
         $this->cleanup($working, $now);
         $result = $operation($working, $now);
 
-        // EN: Even cleanup stays provisional on a purpose mismatch or an exception.
         // RU: При несовпадении назначения или исключении даже изменения очистки состояния не фиксируются.
+        // EN: Even cleanup stays provisional on a purpose mismatch or an exception.
         if ($result->code !== LifecycleCode::PurposeMismatch) {
             $this->pruneTombstones($working, $now);
             $bucket->copyFrom($working);
@@ -192,8 +192,8 @@ final readonly class ChallengeLifecycle
     private function newChallenge(ChallengeId $id, Purpose $purpose, ChallengeKind $kind, AnswerProof $proof, int $now): ActiveChallenge
     {
         $expiresAt = $this->addSeconds($now, $this->policy->ttlSeconds);
-        // EN: Reserve a representable retention horizon before accepting an active record.
         // RU: До принятия активной записи проверяем, что конец срока хранения представим целым числом.
+        // EN: Reserve a representable retention horizon before accepting an active record.
         $this->addSeconds($expiresAt, $this->policy->terminalRetentionSeconds);
 
         return new ActiveChallenge($id, $purpose, $kind, $now, $expiresAt, $proof);
@@ -201,8 +201,8 @@ final readonly class ChallengeLifecycle
 
     private function terminal(ChallengeId $id, Purpose $purpose, TerminalReason $reason, int $expiresAt, int $now): ChallengeTombstone
     {
-        // EN: Retain through the original validity horizon plus retention (subject to cap eviction).
         // RU: Храним до конца исходного срока действия плюс период хранения, с возможным вытеснением по лимиту.
+        // EN: Retain through the original validity horizon plus retention (subject to cap eviction).
         return new ChallengeTombstone($id, $purpose, $reason, $now, $this->addSeconds(max($expiresAt, $now), $this->policy->terminalRetentionSeconds));
     }
 

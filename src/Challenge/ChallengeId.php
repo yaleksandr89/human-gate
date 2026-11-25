@@ -14,8 +14,8 @@ final readonly class ChallengeId
     ) {}
 
     /**
-     * EN: Generates an ID using cryptographically secure randomness, propagating source failures.
      * RU: Создаёт ID из криптографически стойких случайных данных; ошибки источника передаются вызывающему коду.
+     * EN: Generates an ID using cryptographically secure randomness, propagating source failures.
      *
      * @throws RandomException
      */
